@@ -379,7 +379,16 @@ function toggleMethod(methodId) {
     } else {
         expandedMethods.push(methodId)
     }
-    renderMethods()
+
+    // Directly toggle the DOM without re-rendering, so form inputs are preserved
+    const content = document.getElementById(`content-${methodId}`)
+    if (!content) return
+
+    const isExpanded = expandedMethods.includes(methodId)
+    content.classList.toggle('expanded', isExpanded)
+
+    const chevron = content.previousElementSibling?.querySelector('.chevron')
+    if (chevron) chevron.classList.toggle('expanded', isExpanded)
 }
 
 function switchTab(event, methodId, tabName) {

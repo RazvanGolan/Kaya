@@ -1457,7 +1457,16 @@ function toggleEndpoint(endpointId) {
   } else {
     expandedEndpoints.push(endpointId)
   }
-  renderEndpoints()
+
+  // Directly toggle the DOM without re-rendering, so form inputs are preserved
+  const content = document.getElementById(`content-${endpointId}`)
+  if (!content) return
+
+  const isExpanded = expandedEndpoints.includes(endpointId)
+  content.classList.toggle('expanded', isExpanded)
+
+  const chevron = content.previousElementSibling?.querySelector('.chevron')
+  if (chevron) chevron.classList.toggle('expanded', isExpanded)
 }
 
 function switchTab(event, endpointId, tabName) {
