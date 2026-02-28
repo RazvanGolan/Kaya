@@ -185,10 +185,6 @@ public class GrpcInvocationRequest
     /// </summary>
     public Dictionary<string, string> Metadata { get; init; } = new();
 
-    /// <summary>
-    /// For client streaming - array of request messages as JSON
-    /// </summary>
-    public List<string>? StreamRequests { get; init; }
 }
 
 /// <summary>
@@ -239,11 +235,6 @@ public class GrpcInvocationResponse
     /// Response payload as JSON (for unary)
     /// </summary>
     public string? ResponseJson { get; set; }
-
-    /// <summary>
-    /// Response messages as JSON (for streaming)
-    /// </summary>
-    public List<string>? StreamResponses { get; set; }
 
     /// <summary>
     /// Error message if failed

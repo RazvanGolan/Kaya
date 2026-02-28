@@ -909,28 +909,8 @@ async function invokeMethod(serviceName, methodIndex) {
         const result = await response.json()
         
         if (result.success) {
-            let responseJson
-            let responseSize
-            
-            // Handle streaming vs unary responses
-            if (result.streamResponses && result.streamResponses.length > 0) {
-                // For streaming responses, format each JSON string in the array
-                const formattedResponses = result.streamResponses.map((jsonStr, index) => {
-                    try {
-                        const parsed = JSON.parse(jsonStr)
-                        return JSON.stringify(parsed, null, 2).trim()
-                    } catch (e) {
-                        return jsonStr
-                    }
-                })
-                // Join all responses without extra spacing
-                responseJson = formattedResponses.join(',\n')
-                responseSize = new Blob([responseJson]).size
-            } else {
-                // For unary responses, use the responseJson directly
-                responseJson = result.responseJson
-                responseSize = new Blob([responseJson]).size
-            }
+            const responseJson = result.responseJson
+            const responseSize = new Blob([responseJson]).size
             
             const duration = result.durationMs || 0
             
