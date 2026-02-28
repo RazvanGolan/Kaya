@@ -5,7 +5,9 @@ A gRPC service explorer that uses Server Reflection to discover and test gRPC se
 ## Features
 
 - **Automatic Service Discovery** - Uses gRPC Server Reflection to enumerate services and methods
-- **All RPC Types** - Support for Unary, Server Streaming, Client Streaming, and Bidirectional Streaming
+- **All RPC Types** - Full support for Unary, Server Streaming, Client Streaming, and Bidirectional Streaming
+- **Real-Time Streaming via SSE** - Streaming responses are pushed to the browser in real time using Server-Sent Events (SSE); no polling required
+- **Interactive Stream Control** - Start, send messages into, and end client/bidirectional streams directly from the UI
 - **Protobuf Schema** - Automatically generates JSON schemas from Protobuf message definitions
 - **Interactive Testing** - Execute gRPC methods with JSON payloads directly from the browser
 - **Server Configuration** - Connect to local or remote gRPC servers with custom metadata
@@ -69,7 +71,6 @@ Kaya gRPC Explorer uses the gRPC Server Reflection API to discover services at r
 4. **Analyzes Methods**: Examines each service method to determine RPC type and message schemas
 5. **Generates Schemas**: Creates JSON schemas from Protobuf MessageDescriptor definitions
 6. **Serves UI**: Provides a web interface to explore services and invoke methods
-
 ## Service Information Captured
 
 For each gRPC method, it captures:
@@ -97,7 +98,6 @@ builder.Services.AddKayaGrpcExplorer(options =>
     options.Middleware.RoutePrefix = "/grpc-explorer";
     options.Middleware.DefaultTheme = "dark";
     options.Middleware.DefaultServerAddress = "https://localhost:5000";
-    options.Middleware.StreamBufferSize = 100;
     options.Middleware.RequestTimeoutSeconds = 30;
 });
 ```
@@ -107,7 +107,6 @@ builder.Services.AddKayaGrpcExplorer(options =>
 - `DefaultTheme`: UI theme - `"light"` or `"dark"` (default: `"light"`)
 - `DefaultServerAddress`: Default gRPC server to connect to
 - `AllowInsecureConnections`: Bypass certificate validation for HTTPS (default: `false`)
-- `StreamBufferSize`: Max messages to buffer for streaming responses (default: 50)
 - `RequestTimeoutSeconds`: Timeout for gRPC requests (default: 30)
 
 ### HTTP-Only Endpoints (No TLS)
@@ -166,6 +165,23 @@ app.Run();
 
 Then open `http://localhost:5010/grpc-explorer` in your browser.
 
+### Streaming via SSE
+
+For all streaming RPC types the UI communicates with the explorer backend over a set of lightweight HTTP endpoints backed by **Server-Sent Events (SSE)**:
+
+| Endpoint | Purpose |
+|---|---|
+| `POST /grpc-explorer/stream/start` | Opens a streaming session and returns a `sessionId` |
+| `POST /grpc-explorer/stream/send` | Sends one message into an active client/bidirectional stream |
+| `POST /grpc-explorer/stream/end` | Completes the client-side request stream |
+| `GET /grpc-explorer/stream/events/{sessionId}` | SSE channel — pushes `message`, `complete`, and `error` events to the browser in real time |
+
+Each streaming method type works as follows:
+
+- **Server Streaming** — the initial request is sent at `stream/start`; responses are streamed back via SSE until the server closes the stream.
+- **Client Streaming** — messages are sent one at a time via `stream/send`; the server's single response is pushed over SSE after `stream/end` completes the request stream.
+- **Bidirectional Streaming** — messages are sent via `stream/send` at any time while server responses arrive over SSE concurrently; `stream/end` signals the end of client messages.
+
 ## Demo Project
 
 This repository includes a comprehensive demo gRPC service showcasing all four RPC types across three different services.
@@ -190,10 +206,6 @@ dotnet run --launch-profile Demo.GrpcOrdersService.Https
 > **Note on HTTPS**: If you use the HTTPS launch profile, the server uses a self-signed certificate. You'll need to trust it in your browser or system to avoid certificate warnings.
 
 > **Note**: When running with the HTTP profile, gRPC traffic runs on port 5000 (HTTP/2) and the Kaya UI is served on port 5010 (HTTP/1.1). With HTTPS, both run on port 5001.
-
-## Current Limitations
-
-The current implementation includes an MVP placeholder for dynamic method invocation in `GrpcProxyService`. Full dynamic invocation of all RPC types (especially streaming methods) requires additional implementation.
 
 ## Embedded UI Architecture
 

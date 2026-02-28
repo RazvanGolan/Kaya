@@ -6,7 +6,7 @@
     <Nullable>enable</Nullable>
     <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
     <PackageId>Kaya.GrpcExplorer</PackageId>
-    <PackageVersion>1.0.0</PackageVersion>
+    <PackageVersion>1.1.0</PackageVersion>
     <Authors>RazvanGolan</Authors>
     <Company>RazvanGolan</Company>
     <Product>Kaya gRPC Explorer</Product>
@@ -18,9 +18,8 @@
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
     <PackageReadmeFile>README.md</PackageReadmeFile>
     <PackageIcon>icon.png</PackageIcon>
-    <PackageReleaseNotes>Initial release of gRPC Explorer with Server Reflection support for automatic service discovery and testing.</PackageReleaseNotes>
+    <PackageReleaseNotes>Added interactive SSE-based streaming for Server Streaming, Client Streaming, and Bidirectional Streaming RPC methods</PackageReleaseNotes>
   </PropertyGroup>  
-
 
   <ItemGroup>
     <FrameworkReference Include="Microsoft.AspNetCore.App" />
