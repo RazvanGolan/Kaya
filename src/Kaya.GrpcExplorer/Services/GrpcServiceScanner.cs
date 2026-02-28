@@ -57,17 +57,13 @@ public class GrpcServiceScanner(KayaGrpcExplorerOptions options) : IGrpcServiceS
                     Console.WriteLine($"Error scanning service {serviceName}: {ex.Message}");
                 }
             }
-            
-            _cache[serverAddress] = services;
         }
         catch (Exception ex)
         {
             Console.WriteLine($"Error scanning services from {serverAddress}: {ex.Message}");
-            throw new InvalidOperationException(
-                $"Failed to scan gRPC services. Ensure the server at '{serverAddress}' " +
-                $"is running and has gRPC reflection enabled. Error: {ex.Message}", ex);
         }
 
+        _cache[serverAddress] = services;
         return services;
     }
 
