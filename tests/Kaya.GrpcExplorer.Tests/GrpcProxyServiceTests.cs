@@ -28,7 +28,8 @@ public class GrpcProxyServiceTests
             }
         };
 
-        _proxyService = new GrpcProxyService(options, scannerMock.Object);
+        var sessionManagerMock = new Mock<IStreamingSessionManager>();
+        _proxyService = new GrpcProxyService(options, scannerMock.Object, sessionManagerMock.Object);
     }
 
     [Fact]

@@ -385,3 +385,262 @@
   font-size: 14px;
   margin: 0;
 }
+
+/* --- Interactive streaming UI ----------------------------------------------- */
+
+.stream-status-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.stream-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 10px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.stream-status--idle {
+  background: var(--bg-secondary);
+  color: var(--text-secondary);
+  border: 1px solid var(--border-color);
+}
+
+.stream-status--connecting {
+  background: #fef3c7;
+  color: #92400e;
+  border: 1px solid #fcd34d;
+}
+
+.stream-status--streaming {
+  background: #d1fae5;
+  color: #065f46;
+  border: 1px solid #6ee7b7;
+  animation: stream-pulse 2s ease-in-out infinite;
+}
+
+.stream-status--complete {
+  background: #dbeafe;
+  color: #1e40af;
+  border: 1px solid #93c5fd;
+}
+
+.stream-status--error {
+  background: #fee2e2;
+  color: #991b1b;
+  border: 1px solid #fca5a5;
+}
+
+[data-theme="dark"] .stream-status--connecting {
+  background: #451a03;
+  color: #fcd34d;
+  border-color: #78350f;
+}
+
+[data-theme="dark"] .stream-status--streaming {
+  background: #022c22;
+  color: #6ee7b7;
+  border-color: #065f46;
+}
+
+[data-theme="dark"] .stream-status--complete {
+  background: #1e3a5f;
+  color: #93c5fd;
+  border-color: #1e40af;
+}
+
+[data-theme="dark"] .stream-status--error {
+  background: #450a0a;
+  color: #fca5a5;
+  border-color: #991b1b;
+}
+
+@keyframes stream-pulse {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0.7; }
+}
+
+.stream-controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 12px;
+  margin-bottom: 4px;
+}
+
+.btn-danger {
+  background-color: #dc2626;
+  color: #fff;
+  border: 1px solid #b91c1c;
+  border-radius: 6px;
+  padding: 8px 16px;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  transition: background 0.2s ease, opacity 0.2s ease;
+}
+
+.btn-danger:hover:not(:disabled) {
+  background-color: #b91c1c;
+}
+
+.btn-danger:disabled,
+.stream-controls button:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+/* Stream log */
+.stream-log {
+  margin-top: 14px;
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  overflow-y: auto;
+  max-height: 340px;
+  background: var(--bg-primary);
+  font-size: 12px;
+}
+
+.stream-log-empty {
+  padding: 20px;
+  text-align: center;
+  color: var(--text-secondary);
+  font-size: 13px;
+}
+
+.stream-log-entry {
+  display: flex;
+  flex-direction: column;
+  border-bottom: 1px solid var(--border-color);
+  padding: 8px 12px;
+  gap: 4px;
+}
+
+.stream-log-entry:last-child {
+  border-bottom: none;
+}
+
+.stream-log-entry--sent {
+  border-left: 3px solid #6366f1;
+}
+
+.stream-log-entry--received {
+  border-left: 3px solid #10b981;
+}
+
+.stream-log-entry--system {
+  border-left: 3px solid var(--text-secondary);
+  opacity: 0.75;
+}
+
+.stream-log-entry--error {
+  border-left: 3px solid #ef4444;
+  background: var(--error-bg, #fee2e2);
+}
+
+.stream-log-meta {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+}
+
+.stream-log-icon {
+  font-size: 11px;
+}
+
+.stream-log-entry--sent   .stream-log-meta { color: #6366f1; }
+.stream-log-entry--received .stream-log-meta { color: #10b981; }
+.stream-log-entry--error  .stream-log-meta { color: #ef4444; }
+
+.stream-log-time {
+  margin-left: auto;
+  opacity: 0.7;
+  font-weight: 400;
+}
+
+.stream-log-body {
+  margin: 0;
+  white-space: pre-wrap;
+  word-break: break-all;
+  font-family: monospace;
+  font-size: 12px;
+  color: var(--text-primary);
+  line-height: 1.5;
+}
+
+/* Per-entry copy button */
+.stream-log-copy-btn {
+  margin-left: 6px;
+  padding: 1px 4px;
+  background: none;
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  cursor: pointer;
+  color: var(--text-secondary);
+  line-height: 1;
+  display: inline-flex;
+  align-items: center;
+  opacity: 0;
+  transition: opacity 0.15s ease, color 0.15s ease;
+}
+
+.stream-log-entry:hover .stream-log-copy-btn {
+  opacity: 1;
+}
+
+.stream-log-copy-btn:hover {
+  color: var(--text-primary);
+  background: var(--hover-bg);
+}
+
+/* When stats bar is visible, flatten the log's bottom corners */
+.stream-log:has(+ .stream-stats:not([style*="display: none"])) {
+  border-radius: 8px 8px 0 0;
+}
+
+/* Stats bar */
+.stream-stats {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px;
+  border: 1px solid var(--border-color);
+  border-top: none;
+  border-radius: 0 0 8px 8px;
+  background: var(--bg-secondary);
+  font-size: 11px;
+  color: var(--text-secondary);
+}
+
+.stream-stats-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.stream-stats-item strong {
+  color: var(--text-primary);
+  font-weight: 600;
+}
+
+.stream-stats-sent svg   { color: #6366f1; }
+.stream-stats-received svg { color: #10b981; }
+
+.stream-stats-sep {
+  opacity: 0.4;
+}

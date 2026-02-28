@@ -6,6 +6,12 @@ let methodActiveTabs = {}
 let methodResponses = {}
 let currentServerAddress = ""
 
+// Active streaming sessions: methodIdentifier -> { sessionId, eventSource }
+let activeStreams = {}
+
+// Per-method message counters (persist across stream start/end until log is cleared)
+let streamStats = {} // methodIdentifier -> { sent: 0, received: 0 }
+
 // Auto-resize textarea helper
 function autoResizeTextarea(el) {
   if (!el) return;
@@ -336,7 +342,12 @@ function renderMessageSchema(schema, label) {
 
 function renderTryItOut(method, index) {
     const methodIdentifier = `${selectedService}-${index}`
-    
+    const isStreaming = method.methodType === 1 || method.methodType === 2 || method.methodType === 3
+
+    if (isStreaming) {
+        return renderStreamingTryItOut(method, index, methodIdentifier)
+    }
+
     return `
         <div class="request-builder">
             <h4 style="margin-bottom: 12px;">Request Body</h4>
@@ -351,16 +362,454 @@ function renderTryItOut(method, index) {
                 <button class="btn btn-outline btn-sm" onclick="addMetadata('${methodIdentifier}')">Add Metadata</button>
             </div>
             
-            <button class="btn btn-primary" style="margin-top: 16px; width: 100%;" onclick="invokeMethod('${selectedService}', ${index})">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <polygon points="5,3 19,12 5,21 5,3"></polygon>
-                </svg>
-                Invoke Method
-            </button>
+            <div style="display: flex; gap: 8px; margin-top: 16px;">
+                <button class="btn btn-primary" style="flex: 1;" onclick="invokeMethod('${selectedService}', ${index})">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <polygon points="5,3 19,12 5,21 5,3"></polygon>
+                    </svg>
+                    Invoke Method
+                </button>
+                <button class="btn btn-outline btn-sm" id="clear-response-btn-${methodIdentifier}"
+                        style="display: none;" title="Clear response"
+                        onclick="clearResponse('${methodIdentifier}')">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <polyline points="3,6 5,6 21,6"></polyline>
+                        <path d="M19,6l-1,14a2,2,0,0,1-2,2H8a2,2,0,0,1-2-2L5,6"></path>
+                        <path d="M10,11v6"></path><path d="M14,11v6"></path>
+                        <path d="M9,6V4a1,1,0,0,1,1-1h4a1,1,0,0,1,1,1v2"></path>
+                    </svg>
+                    Clear
+                </button>
+            </div>
             
             <div id="response-${methodIdentifier}" style="margin-top: 16px; display: none;"></div>
         </div>
     `
+}
+
+function renderStreamingTryItOut(method, index, methodIdentifier) {
+    const isServerStream = method.methodType === 1  // server only needs initial request
+    const isClientOrBidi = method.methodType === 2 || method.methodType === 3
+
+    const initialRequestArea = `
+        <h4 style="margin-bottom: 8px;">${isServerStream ? 'Request Body' : 'Message Body'}</h4>
+        <textarea id="request-${methodIdentifier}"
+                  class="body-textarea"
+                  style="width: 100%; font-family: monospace;"
+                  placeholder="Enter JSON">${method.requestType.exampleJson}</textarea>
+    `
+
+    const metadataSection = `
+        <div class="metadata-editor">
+            <h4 style="margin-bottom: 8px;">Metadata (optional)</h4>
+            <div id="metadata-${methodIdentifier}"></div>
+            <button class="btn btn-outline btn-sm" onclick="addMetadata('${methodIdentifier}')">Add Metadata</button>
+        </div>
+    `
+
+    return `
+        <div class="request-builder">
+            <div class="stream-status-bar">
+                <span class="stream-status stream-status--idle" id="stream-status-${methodIdentifier}">Idle</span>
+                <button class="btn btn-outline btn-sm stream-clear-btn" id="stream-clear-btn-${methodIdentifier}"
+                        style="margin-left: auto; display: none;" title="Clear log"
+                        onclick="clearStreamLog('${methodIdentifier}')">
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <polyline points="3,6 5,6 21,6"></polyline>
+                        <path d="M19,6l-1,14a2,2,0,0,1-2,2H8a2,2,0,0,1-2-2L5,6"></path>
+                        <path d="M10,11v6"></path><path d="M14,11v6"></path>
+                        <path d="M9,6V4a1,1,0,0,1,1-1h4a1,1,0,0,1,1,1v2"></path>
+                    </svg>
+                    Clear log
+                </button>
+            </div>
+
+            ${initialRequestArea}
+            ${metadataSection}
+
+            <div class="stream-controls" id="stream-controls-${methodIdentifier}">
+                <button class="btn btn-primary stream-start-btn" id="stream-start-btn-${methodIdentifier}"
+                        onclick="startStream('${selectedService}', ${index})">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <polygon points="5,3 19,12 5,21 5,3"></polygon>
+                    </svg>
+                    Start Stream
+                </button>
+
+                ${isClientOrBidi ? `
+                <button class="btn btn-outline stream-send-btn" id="stream-send-btn-${methodIdentifier}"
+                        disabled
+                        onclick="sendStreamMessage('${methodIdentifier}')">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <line x1="22" y1="2" x2="11" y2="13"></line>
+                        <polygon points="22,2 15,22 11,13 2,9 22,2"></polygon>
+                    </svg>
+                    Send Message
+                </button>
+
+                <button class="btn btn-danger stream-end-btn" id="stream-end-btn-${methodIdentifier}"
+                        disabled
+                        onclick="endStream('${methodIdentifier}')">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+                    </svg>
+                    End Stream
+                </button>
+                ` : `
+                <button class="btn btn-danger stream-cancel-btn" id="stream-cancel-btn-${methodIdentifier}"
+                        disabled
+                        onclick="cancelStream('${methodIdentifier}')">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <circle cx="12" cy="12" r="10"></circle>
+                        <line x1="15" y1="9" x2="9" y2="15"></line>
+                        <line x1="9" y1="9" x2="15" y2="15"></line>
+                    </svg>
+                    Cancel
+                </button>
+                `}
+            </div>
+
+            <div class="stream-log" id="stream-log-${methodIdentifier}">
+                <div class="stream-log-empty">Stream not started. Press <strong>Start Stream</strong> to begin.</div>
+            </div>
+
+            <div class="stream-stats" id="stream-stats-${methodIdentifier}" style="display: none;">
+                <span class="stream-stats-item stream-stats-sent">
+                    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                        <line x1="22" y1="2" x2="11" y2="13"></line>
+                        <polygon points="22,2 15,22 11,13 2,9 22,2"></polygon>
+                    </svg>
+                    Sent: <strong id="stream-stats-sent-${methodIdentifier}">0</strong>
+                </span>
+                <span class="stream-stats-sep">&middot;</span>
+                <span class="stream-stats-item stream-stats-received">
+                    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                        <polyline points="17,1 21,5 17,9"></polyline>
+                        <path d="M3,11V9a4,4,0,0,1,4-4h14"></path>
+                        <polyline points="7,23 3,19 7,15"></polyline>
+                        <path d="M21,13v2a4,4,0,0,1-4,4H3"></path>
+                    </svg>
+                    Received: <strong id="stream-stats-received-${methodIdentifier}">0</strong>
+                </span>
+            </div>
+        </div>
+    `
+}
+
+// --- Interactive streaming functions ------------------------------------------
+
+async function startStream(serviceName, methodIndex) {
+    const service = services.find(s => s.serviceName === serviceName)
+    const method = service.methods[methodIndex]
+    const methodIdentifier = `${serviceName}-${methodIndex}`
+
+    // If a stream is already active, ignore
+    if (activeStreams[methodIdentifier]) return
+
+    const requestJson = document.getElementById(`request-${methodIdentifier}`)?.value || '{}'
+
+    setStreamStatus(methodIdentifier, 'connecting', 'Connecting…')
+    appendStreamLog(methodIdentifier, 'system', 'Starting stream…')
+
+    try {
+        const config = window.KayaGrpcExplorerConfig || {}
+        const routePrefix = config.routePrefix || '/grpc-explorer'
+
+        const authHeaders = getAuthHeaders()
+        const metadata = {}
+        Object.entries(authHeaders).forEach(([k, v]) => { metadata[k.toLowerCase()] = v })
+
+        // Collect custom metadata rows
+        const metadataContainer = document.getElementById(`metadata-${methodIdentifier}`)
+        if (metadataContainer) {
+            metadataContainer.querySelectorAll('.metadata-row').forEach(row => {
+                const inputs = row.querySelectorAll('.metadata-input')
+                if (inputs.length >= 2 && inputs[0].value) {
+                    metadata[inputs[0].value.toLowerCase()] = inputs[1].value
+                }
+            })
+        }
+
+        const body = {
+            serverAddress: currentServerAddress,
+            serviceName,
+            methodName: method.methodName,
+            metadata,
+            initialMessageJson: requestJson  // used for server-streaming; ignored otherwise
+        }
+
+        const res = await fetch(`${routePrefix}/stream/start`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(body)
+        })
+
+        if (!res.ok) {
+            const err = await res.json()
+            setStreamStatus(methodIdentifier, 'error', 'Error')
+            appendStreamLog(methodIdentifier, 'error', `Failed to start: ${err.error}`)
+            return
+        }
+
+        const { sessionId } = await res.json()
+
+        // Open SSE connection
+        const evtSource = new EventSource(`${routePrefix}/stream/events/${sessionId}`)
+
+        evtSource.addEventListener('message', e => {
+            let pretty
+            try { pretty = JSON.stringify(JSON.parse(e.data), null, 2) } catch { pretty = e.data }
+            appendStreamLog(methodIdentifier, 'received', pretty)
+        })
+
+        evtSource.addEventListener('complete', () => {
+            setStreamStatus(methodIdentifier, 'complete', 'Complete')
+            appendStreamLog(methodIdentifier, 'system', 'Stream complete.')
+            evtSource.close()
+            delete activeStreams[methodIdentifier]
+            setStreamButtonsIdle(methodIdentifier, method.methodType)
+        })
+
+        evtSource.addEventListener('error', e => {
+            const msg = e.data || 'Unknown error'
+            setStreamStatus(methodIdentifier, 'error', 'Error')
+            appendStreamLog(methodIdentifier, 'error', `Error: ${msg}`)
+            evtSource.close()
+            delete activeStreams[methodIdentifier]
+            setStreamButtonsIdle(methodIdentifier, method.methodType)
+        })
+
+        evtSource.onerror = () => {
+            if (evtSource.readyState === EventSource.CLOSED) {
+                if (activeStreams[methodIdentifier]) {
+                    setStreamStatus(methodIdentifier, 'error', 'Disconnected')
+                    appendStreamLog(methodIdentifier, 'error', 'SSE connection closed unexpectedly.')
+                    delete activeStreams[methodIdentifier]
+                    setStreamButtonsIdle(methodIdentifier, method.methodType)
+                }
+            }
+        }
+
+        activeStreams[methodIdentifier] = { sessionId, eventSource: evtSource }
+        setStreamStatus(methodIdentifier, 'streaming', 'Streaming')
+        setStreamButtonsActive(methodIdentifier, method.methodType)
+
+        // For server streaming, log the sent request
+        if (method.methodType === 1) {
+            appendStreamLog(methodIdentifier, 'sent', requestJson)
+        }
+
+    } catch (err) {
+        setStreamStatus(methodIdentifier, 'error', 'Error')
+        appendStreamLog(methodIdentifier, 'error', `Failed: ${err.message}`)
+    }
+}
+
+async function sendStreamMessage(methodIdentifier) {
+    const stream = activeStreams[methodIdentifier]
+    if (!stream) return
+
+    const textarea = document.getElementById(`request-${methodIdentifier}`)
+    const messageJson = textarea?.value || '{}'
+
+    try {
+        const config = window.KayaGrpcExplorerConfig || {}
+        const routePrefix = config.routePrefix || '/grpc-explorer'
+
+        const res = await fetch(`${routePrefix}/stream/send`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ sessionId: stream.sessionId, messageJson })
+        })
+
+        if (!res.ok) {
+            const err = await res.json()
+            appendStreamLog(methodIdentifier, 'error', `Send failed: ${err.error}`)
+            return
+        }
+
+        appendStreamLog(methodIdentifier, 'sent', messageJson)
+    } catch (err) {
+        appendStreamLog(methodIdentifier, 'error', `Send failed: ${err.message}`)
+    }
+}
+
+async function endStream(methodIdentifier) {
+    const stream = activeStreams[methodIdentifier]
+    if (!stream) return
+
+    try {
+        const config = window.KayaGrpcExplorerConfig || {}
+        const routePrefix = config.routePrefix || '/grpc-explorer'
+
+        appendStreamLog(methodIdentifier, 'system', 'Ending stream…')
+
+        await fetch(`${routePrefix}/stream/end`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ sessionId: stream.sessionId })
+        })
+    } catch (err) {
+        appendStreamLog(methodIdentifier, 'error', `End stream failed: ${err.message}`)
+    }
+}
+
+function cancelStream(methodIdentifier) {
+    const stream = activeStreams[methodIdentifier]
+    if (!stream) return
+
+    stream.eventSource.close()
+    delete activeStreams[methodIdentifier]
+    setStreamStatus(methodIdentifier, 'idle', 'Idle')
+    appendStreamLog(methodIdentifier, 'system', 'Stream cancelled.')
+    const cancelBtn = document.getElementById(`stream-cancel-btn-${methodIdentifier}`)
+    if (cancelBtn) setStreamButtonsIdle(methodIdentifier, 1) // server-stream type
+}
+
+// --- Stream UI helpers --------------------------------------------------------
+
+function setStreamStatus(methodIdentifier, state, label) {
+    const el = document.getElementById(`stream-status-${methodIdentifier}`)
+    if (!el) return
+    el.className = `stream-status stream-status--${state}`
+    el.textContent = label
+}
+
+function setStreamButtonsActive(methodIdentifier, methodType) {
+    const startBtn = document.getElementById(`stream-start-btn-${methodIdentifier}`)
+    if (startBtn) startBtn.disabled = true
+
+    if (methodType === 2 || methodType === 3) {
+        const sendBtn = document.getElementById(`stream-send-btn-${methodIdentifier}`)
+        const endBtn = document.getElementById(`stream-end-btn-${methodIdentifier}`)
+        if (sendBtn) sendBtn.disabled = false
+        if (endBtn) endBtn.disabled = false
+    } else {
+        const cancelBtn = document.getElementById(`stream-cancel-btn-${methodIdentifier}`)
+        if (cancelBtn) cancelBtn.disabled = false
+    }
+}
+
+function setStreamButtonsIdle(methodIdentifier, methodType) {
+    const startBtn = document.getElementById(`stream-start-btn-${methodIdentifier}`)
+    if (startBtn) startBtn.disabled = false
+
+    if (methodType === 2 || methodType === 3) {
+        const sendBtn = document.getElementById(`stream-send-btn-${methodIdentifier}`)
+        const endBtn = document.getElementById(`stream-end-btn-${methodIdentifier}`)
+        if (sendBtn) sendBtn.disabled = true
+        if (endBtn) endBtn.disabled = true
+    } else {
+        const cancelBtn = document.getElementById(`stream-cancel-btn-${methodIdentifier}`)
+        if (cancelBtn) cancelBtn.disabled = true
+    }
+}
+
+function appendStreamLog(methodIdentifier, type, text) {
+    const log = document.getElementById(`stream-log-${methodIdentifier}`)
+    if (!log) return
+
+    // Remove empty placeholder
+    const empty = log.querySelector('.stream-log-empty')
+    if (empty) empty.remove()
+
+    // Show the clear button once there's content
+    const clearBtn = document.getElementById(`stream-clear-btn-${methodIdentifier}`)
+    if (clearBtn) clearBtn.style.display = ''
+
+    // Track sent/received counts and update the stats bar
+    if (type === 'sent' || type === 'received') {
+        if (!streamStats[methodIdentifier]) streamStats[methodIdentifier] = { sent: 0, received: 0 }
+        streamStats[methodIdentifier][type]++
+        updateStreamStats(methodIdentifier)
+    }
+
+    const now = new Date().toLocaleTimeString('en-GB', { hour12: false })
+
+    const icon  = { sent: '\u2191', received: '\u2193', system: '\u00b7', error: '\u2717' }[type] || '\u00b7'
+    const label = { sent: 'SENT', received: 'RECV', system: 'INFO', error: 'ERR'  }[type] || 'INFO'
+    const copyable = type === 'sent' || type === 'received'
+
+    const entry = document.createElement('div')
+    entry.className = `stream-log-entry stream-log-entry--${type}`
+
+    entry.innerHTML = `
+        <span class="stream-log-meta">
+            <span class="stream-log-icon">${icon}</span>
+            <span class="stream-log-label">${label}</span>
+            <span class="stream-log-time">${now}</span>
+            ${copyable ? `
+            <button class="stream-log-copy-btn" title="Copy" onclick="copyStreamEntry(this)">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                    <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                </svg>
+            </button>` : ''}
+        </span>
+        <pre class="stream-log-body">${escapeHtml(text)}</pre>
+    `
+
+    log.appendChild(entry)
+    log.scrollTop = log.scrollHeight
+}
+
+function updateStreamStats(methodIdentifier) {
+    const stats = streamStats[methodIdentifier] || { sent: 0, received: 0 }
+    const bar = document.getElementById(`stream-stats-${methodIdentifier}`)
+    const sentEl = document.getElementById(`stream-stats-sent-${methodIdentifier}`)
+    const receivedEl = document.getElementById(`stream-stats-received-${methodIdentifier}`)
+    if (bar) bar.style.display = ''
+    if (sentEl) sentEl.textContent = stats.sent
+    if (receivedEl) receivedEl.textContent = stats.received
+}
+
+function copyStreamEntry(btn) {
+    const pre = btn.closest('.stream-log-entry').querySelector('.stream-log-body')
+    if (!pre) return
+    navigator.clipboard.writeText(pre.textContent).then(() => {
+        const original = btn.innerHTML
+        btn.innerHTML = '\u2713'
+        setTimeout(() => { btn.innerHTML = original }, 1500)
+    })
+}
+
+function clearStreamLog(methodIdentifier) {
+    const log = document.getElementById(`stream-log-${methodIdentifier}`)
+    if (!log) return
+    log.innerHTML = '<div class="stream-log-empty">Log cleared. Press <strong>Start Stream</strong> to begin a new session.</div>'
+    const clearBtn = document.getElementById(`stream-clear-btn-${methodIdentifier}`)
+    if (clearBtn) clearBtn.style.display = 'none'
+    // Reset stats
+    delete streamStats[methodIdentifier]
+    const bar = document.getElementById(`stream-stats-${methodIdentifier}`)
+    if (bar) bar.style.display = 'none'
+    const sentEl = document.getElementById(`stream-stats-sent-${methodIdentifier}`)
+    const receivedEl = document.getElementById(`stream-stats-received-${methodIdentifier}`)
+    if (sentEl) sentEl.textContent = '0'
+    if (receivedEl) receivedEl.textContent = '0'
+}
+
+function showClearResponseBtn(methodIdentifier) {
+    const btn = document.getElementById(`clear-response-btn-${methodIdentifier}`)
+    if (btn) btn.style.display = ''
+}
+
+function clearResponse(methodIdentifier) {
+    const container = document.getElementById(`response-${methodIdentifier}`)
+    if (container) {
+        container.innerHTML = ''
+        container.style.display = 'none'
+    }
+    const clearBtn = document.getElementById(`clear-response-btn-${methodIdentifier}`)
+    if (clearBtn) clearBtn.style.display = 'none'
+    delete methodResponses[methodIdentifier]
+}
+
+function escapeHtml(str) {
+    return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
 }
 
 function selectService(serviceName) {
@@ -510,6 +959,7 @@ async function invokeMethod(serviceName, methodIndex) {
             `;
             
             responseContainer.innerHTML = successHtml;
+            showClearResponseBtn(methodIdentifier);
             
             // Store the successful response
             methodResponses[methodIdentifier] = {
@@ -529,6 +979,7 @@ async function invokeMethod(serviceName, methodIndex) {
             `;
             
             responseContainer.innerHTML = errorHtml;
+            showClearResponseBtn(methodIdentifier);
             
             // Store the error response
             methodResponses[methodIdentifier] = {
@@ -549,6 +1000,7 @@ async function invokeMethod(serviceName, methodIndex) {
         `;
         
         responseContainer.innerHTML = errorHtml;
+        showClearResponseBtn(methodIdentifier);
         
         // Store the error response
         methodResponses[methodIdentifier] = {

@@ -8,11 +8,12 @@
     <NoWarn>$(NoWarn);1591</NoWarn>
   </PropertyGroup>
 
-  <ItemGroup>
+  <!-- <ItemGroup>
     <ProjectReference Include="..\Kaya.ApiExplorer\Kaya.ApiExplorer.csproj" />
-  </ItemGroup>
+  </ItemGroup> -->
 
   <ItemGroup>
+      <PackageReference Include="Kaya.ApiExplorer" Version="2.1.0" />
     <PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="10.0.2" />
   </ItemGroup>
 

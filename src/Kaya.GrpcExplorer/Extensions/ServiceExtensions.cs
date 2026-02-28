@@ -34,6 +34,7 @@ public static class ServiceExtensions
 
         // Register services
         services.AddSingleton<IGrpcServiceScanner, GrpcServiceScanner>();
+        services.AddSingleton<IStreamingSessionManager, StreamingSessionManager>();
         services.AddSingleton<IGrpcProxyService, GrpcProxyService>();
         services.AddSingleton<IGrpcUiService, GrpcUiService>();
 

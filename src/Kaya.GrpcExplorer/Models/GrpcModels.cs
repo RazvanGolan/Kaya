@@ -192,6 +192,40 @@ public class GrpcInvocationRequest
 }
 
 /// <summary>
+/// Request to start an interactive streaming session
+/// </summary>
+public class StreamStartRequest
+{
+    public string ServerAddress { get; init; } = string.Empty;
+    public string ServiceName { get; init; } = string.Empty;
+    public string MethodName { get; init; } = string.Empty;
+    public Dictionary<string, string> Metadata { get; init; } = [];
+
+    /// <summary>
+    /// Used for server-streaming only: the single request message sent at stream start.
+    /// For client and bidi streaming this is ignored; messages are sent via /stream/send.
+    /// </summary>
+    public string InitialMessageJson { get; init; } = "{}";
+}
+
+/// <summary>
+/// Request to send one message into an active streaming session
+/// </summary>
+public class StreamSendRequest
+{
+    public string SessionId { get; init; } = string.Empty;
+    public string MessageJson { get; init; } = "{}";
+}
+
+/// <summary>
+/// Request to complete the client-side of a streaming session
+/// </summary>
+public class StreamEndRequest
+{
+    public string SessionId { get; init; } = string.Empty;
+}
+
+/// <summary>
 /// Response from gRPC method invocation
 /// </summary>
 public class GrpcInvocationResponse

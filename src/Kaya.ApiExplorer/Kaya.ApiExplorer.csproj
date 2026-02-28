@@ -1,12 +1,12 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFramework>net10.0</TargetFramework>
+    <TargetFramework>net9.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
     <PackageId>Kaya.ApiExplorer</PackageId>
-    <PackageVersion>2.0.2</PackageVersion>
+    <PackageVersion>2.1.0</PackageVersion>
     <Authors>RazvanGolan</Authors>
     <Company>RazvanGolan</Company>
     <Product>Kaya API Explorer</Product>
@@ -18,7 +18,7 @@
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
     <PackageReadmeFile>README.md</PackageReadmeFile>
     <PackageIcon>icon.png</PackageIcon>
-    <PackageReleaseNotes>Version 2.0.2: Added XML documentation support to display code comments in UI. SignalR debug tool improvements: new event handlers tab for easy management, persistent storage for connections and handlers across page reloads, and enhanced message formatting.</PackageReleaseNotes>
+    <PackageReleaseNotes>Version 2.1.0: Search filter no longer resets when selecting an endpoint. Multiple endpoints can now be expanded simultaneously with their responses and input data preserved when navigating between them. Added support for complex object types in multipart form data. Various UI improvements including better SVG icon styling and layout fixes.</PackageReleaseNotes>
   </PropertyGroup>  
   <ItemGroup>
     <FrameworkReference Include="Microsoft.AspNetCore.App" />

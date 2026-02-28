@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using Google.Protobuf;
 using Grpc.Core;
 using Grpc.Net.Client;
 using Kaya.GrpcExplorer.Configuration;
@@ -10,12 +11,24 @@ namespace Kaya.GrpcExplorer.Services;
 public interface IGrpcProxyService
 {
    Task<GrpcInvocationResponse> InvokeMethodAsync(GrpcInvocationRequest request);
+
+   /// <summary>Starts an interactive streaming session and returns the session ID.</summary>
+   Task<string> StartStreamAsync(StreamStartRequest request);
+
+   /// <summary>Sends one message into an active streaming session.</summary>
+   Task SendMessageAsync(StreamSendRequest request);
+
+   /// <summary>Completes the client-side request stream of an active session.</summary>
+   Task EndStreamAsync(StreamEndRequest request);
 }
 
 /// <summary>
 /// Service for proxying gRPC method invocations
 /// </summary>
-public class GrpcProxyService(KayaGrpcExplorerOptions options, IGrpcServiceScanner scanner) : IGrpcProxyService
+public class GrpcProxyService(
+    KayaGrpcExplorerOptions options,
+    IGrpcServiceScanner scanner,
+    IStreamingSessionManager sessionManager) : IGrpcProxyService
 {
 
     /// <summary>
@@ -240,6 +253,193 @@ public class GrpcProxyService(KayaGrpcExplorerOptions options, IGrpcServiceScann
        };
    }
 
+   // -------------------------------------------------------------------------
+   // Interactive streaming — session-based
+   // -------------------------------------------------------------------------
+
+   /// <inheritdoc/>
+   public async Task<string> StartStreamAsync(StreamStartRequest request)
+   {
+       var channel = GrpcReflectionHelper.GetOrCreateChannel(
+           request.ServerAddress,
+           options.Middleware.AllowInsecureConnections);
+
+       var methodDescriptor = await GetMethodDescriptorByName(
+           request.ServerAddress, request.ServiceName, request.MethodName) ?? throw new InvalidOperationException($"Method '{request.MethodName}' not found on '{request.ServiceName}'.");
+       var metadata = GrpcReflectionHelper.CreateMetadata(request.Metadata);
+       var grpcMethod = DynamicGrpcHelper.CreateMethod(methodDescriptor, methodDescriptor.Service.FullName);
+
+       var session = new StreamingSession { MethodDescriptor = methodDescriptor };
+
+       switch (grpcMethod.Type)
+       {
+           case MethodType.ServerStreaming:
+           {
+               var call = channel.CreateCallInvoker().AsyncServerStreamingCall(
+                   grpcMethod, null, new CallOptions(headers: metadata),
+                   DynamicGrpcHelper.CreateMessageFromJson(methodDescriptor.InputType, request.InitialMessageJson));
+
+               session.ResponseReaderTask = ReadServerStreamAsync(session, call.ResponseStream, session.Cts.Token);
+               break;
+           }
+
+           case MethodType.ClientStreaming:
+           {
+               var call = channel.CreateCallInvoker().AsyncClientStreamingCall(
+                   grpcMethod, null, new CallOptions(headers: metadata));
+
+               var writer = call.RequestStream;
+               session = new StreamingSession
+               {
+                   MethodDescriptor = methodDescriptor,
+                   RequestWriter = writer
+               };
+
+               // When the request stream completes, await the single response and push it as an SSE event
+               session.ResponseReaderTask = AwaitClientStreamResponseAsync(session, call, session.Cts.Token);
+               break;
+           }
+
+           case MethodType.DuplexStreaming:
+           {
+               var call = channel.CreateCallInvoker().AsyncDuplexStreamingCall(
+                   grpcMethod, null, new CallOptions(headers: metadata));
+
+               session = new StreamingSession
+               {
+                   MethodDescriptor = methodDescriptor,
+                   RequestWriter = call.RequestStream
+               };
+
+               session.ResponseReaderTask = ReadDuplexStreamAsync(session, call.ResponseStream, session.Cts.Token);
+               break;
+           }
+
+           default:
+               throw new InvalidOperationException("StartStreamAsync is only for streaming methods.");
+       }
+
+       sessionManager.Add(session);
+       return session.Id;
+   }
+
+   /// <inheritdoc/>
+   public async Task SendMessageAsync(StreamSendRequest request)
+   {
+       var session = sessionManager.Get(request.SessionId)
+           ?? throw new InvalidOperationException($"Session '{request.SessionId}' not found.");
+
+       if (session.RequestWriter is null)
+           throw new InvalidOperationException("This session does not accept client messages (server-streaming only).");
+
+       var message = DynamicGrpcHelper.CreateMessageFromJson(session.MethodDescriptor.InputType, request.MessageJson);
+       await session.RequestWriter.WriteAsync(message, session.Cts.Token);
+   }
+
+   /// <inheritdoc/>
+   public async Task EndStreamAsync(StreamEndRequest request)
+   {
+       var session = sessionManager.Get(request.SessionId)
+           ?? throw new InvalidOperationException($"Session '{request.SessionId}' not found.");
+
+       if (session.RequestWriter is null)
+           throw new InvalidOperationException("This session does not accept client messages (server-streaming only).");
+
+       await session.RequestWriter.CompleteAsync();
+   }
+
+   // -------------------------------------------------------------------------
+   // Background reader helpers
+   // -------------------------------------------------------------------------
+
+   private static async Task ReadServerStreamAsync(
+       StreamingSession session,
+       IAsyncStreamReader<IMessage> responseStream,
+       CancellationToken ct)
+   {
+       try
+       {
+           await foreach (var msg in responseStream.ReadAllAsync(ct))
+           {
+               var json = DynamicGrpcHelper.MessageToJson(msg);
+               session.EventWriter.TryWrite(new SseEvent(SseEventType.Message, json));
+           }
+           session.EventWriter.TryWrite(new SseEvent(SseEventType.Complete, "stream complete"));
+       }
+       catch (OperationCanceledException) { /* client disconnected */ }
+       catch (RpcException rex)
+       {
+           session.EventWriter.TryWrite(new SseEvent(SseEventType.Error, rex.Status.Detail));
+       }
+       catch (Exception ex)
+       {
+           session.EventWriter.TryWrite(new SseEvent(SseEventType.Error, ex.Message));
+       }
+       finally
+       {
+           session.EventWriter.TryComplete();
+       }
+   }
+
+   private static async Task ReadDuplexStreamAsync(
+       StreamingSession session,
+       IAsyncStreamReader<IMessage> responseStream,
+       CancellationToken ct)
+   {
+       try
+       {
+           await foreach (var msg in responseStream.ReadAllAsync(ct))
+           {
+               var json = DynamicGrpcHelper.MessageToJson(msg);
+               session.EventWriter.TryWrite(new SseEvent(SseEventType.Message, json));
+           }
+           session.EventWriter.TryWrite(new SseEvent(SseEventType.Complete, "stream complete"));
+       }
+       catch (OperationCanceledException) { /* client disconnected */ }
+       catch (RpcException rex)
+       {
+           session.EventWriter.TryWrite(new SseEvent(SseEventType.Error, rex.Status.Detail));
+       }
+       catch (Exception ex)
+       {
+           session.EventWriter.TryWrite(new SseEvent(SseEventType.Error, ex.Message));
+       }
+       finally
+       {
+           session.EventWriter.TryComplete();
+       }
+   }
+
+   private static async Task AwaitClientStreamResponseAsync(
+       StreamingSession session,
+       AsyncClientStreamingCall<IMessage, IMessage> call,
+       CancellationToken ct)
+   {
+       try
+       {
+           // Block until the caller invokes EndStreamAsync (CompleteAsync on the request stream)
+           var response = await call.ResponseAsync.WaitAsync(ct);
+           var json = DynamicGrpcHelper.MessageToJson(response);
+           session.EventWriter.TryWrite(new SseEvent(SseEventType.Message, json));
+           session.EventWriter.TryWrite(new SseEvent(SseEventType.Complete, "stream complete"));
+       }
+       catch (OperationCanceledException) { /* client disconnected */ }
+       catch (RpcException rex)
+       {
+           session.EventWriter.TryWrite(new SseEvent(SseEventType.Error, rex.Status.Detail));
+       }
+       catch (Exception ex)
+       {
+           session.EventWriter.TryWrite(new SseEvent(SseEventType.Error, ex.Message));
+       }
+       finally
+       {
+           session.EventWriter.TryComplete();
+       }
+   }
+
+   // -------------------------------------------------------------------------
+
    /// <summary>
    /// Prepares stream requests from either StreamRequests or RequestJson
    /// </summary>
@@ -284,6 +484,23 @@ public class GrpcProxyService(KayaGrpcExplorerOptions options, IGrpcServiceScann
            // If parsing fails, treat as single message
            return [request.RequestJson];
        }
+   }
+
+   /// <summary>
+   /// Looks up a method descriptor directly by service + method name (used by interactive streaming)
+   /// </summary>
+   private async Task<Google.Protobuf.Reflection.MethodDescriptor?> GetMethodDescriptorByName(
+       string serverAddress, string serviceName, string methodName)
+   {
+       var cachedDescriptor = scanner.GetCachedMethodDescriptor(serverAddress, serviceName, methodName);
+       if (cachedDescriptor is not null)
+           return cachedDescriptor;
+
+       var cachedDescriptorSet = scanner.GetCachedDescriptorSet(serverAddress, serviceName);
+       return await DynamicGrpcHelper.GetMethodDescriptorAsync(
+           serverAddress, serviceName, methodName,
+           options.Middleware.AllowInsecureConnections,
+           cachedDescriptorSet);
    }
 
    /// <summary>
