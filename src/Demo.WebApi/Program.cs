@@ -71,4 +71,42 @@ app.MapControllers();
 // Map OpenAPI endpoint
 app.MapOpenApi();
 
+// --- Minimal API example ---
+var todosGroup = app.MapGroup("/api/todos").WithTags("Todos");
+
+todosGroup.MapGet("/", () => Results.Ok(new[]
+{
+    new { Id = 1, Title = "Learn Kaya", Done = false },
+    new { Id = 2, Title = "Build Minimal APIs", Done = true }
+}))
+.WithSummary("Get all todos")
+.WithName("GetAllTodos");
+
+todosGroup.MapGet("/search", (string? title, bool? done, int skip = 0, int take = 10) =>
+    Results.Ok(new[] { new { Id = 1, Title = "Learn Kaya", Done = false } }))
+.WithSummary("Search todos")
+.WithName("SearchTodos");
+
+todosGroup.MapGet("/{id:int}", (int id) =>
+    Results.Ok(new { Id = id, Title = $"Todo #{id}", Done = false }))
+.WithSummary("Get todo by ID")
+.WithName("GetTodoById");
+
+todosGroup.MapPost("/", (CreateTodoRequest? request) =>
+    Results.Created($"/api/todos/1", new { Id = 1, Title = request?.Title ?? "", Done = request?.Done ?? false }))
+.WithSummary("Create a new todo")
+.WithName("CreateTodo");
+
+todosGroup.MapPut("/{id:int}", (int id, CreateTodoRequest? request) =>
+    Results.Ok(new { Id = id, Title = request?.Title ?? "", Done = request?.Done ?? false }))
+.WithSummary("Update a todo")
+.WithName("UpdateTodo");
+
+todosGroup.MapDelete("/{id:int}", (int id) => Results.NoContent())
+.WithSummary("Delete a todo")
+.WithName("DeleteTodo")
+.RequireAuthorization();
+
 app.Run();
+
+record CreateTodoRequest(string Title, bool Done = false);

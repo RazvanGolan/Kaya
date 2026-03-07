@@ -1,8 +1,16 @@
 using System.Reflection;
+using System.Text.RegularExpressions;
 using Kaya.ApiExplorer.Helpers;
 using Kaya.ApiExplorer.Models;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Http.Metadata;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc.Abstractions;
 using Microsoft.AspNetCore.Mvc.Routing;
+using Microsoft.AspNetCore.Routing;
+using Microsoft.AspNetCore.Routing.Patterns;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace Kaya.ApiExplorer.Services;
 
@@ -70,7 +78,209 @@ public class EndpointScanner : IEndpointScanner
             documentation.Controllers.Add(controller);
         }
 
+        // Scan Minimal API endpoints
+        foreach (var minimalController in ScanMinimalApiEndpoints(serviceProvider))
+        {
+            documentation.Controllers.Add(minimalController);
+        }
+
         return documentation;
+    }
+
+    private static List<ApiController> ScanMinimalApiEndpoints(IServiceProvider serviceProvider)
+    {
+        var endpointSources = serviceProvider.GetServices<EndpointDataSource>();
+        var groups = new Dictionary<string, List<ApiEndpoint>>(StringComparer.OrdinalIgnoreCase);
+
+        foreach (var source in endpointSources)
+        {
+            foreach (var endpoint in source.Endpoints)
+            {
+                if (endpoint is not RouteEndpoint routeEndpoint)
+                    continue;
+
+                // Skip controller / Razor Pages action endpoints
+                if (routeEndpoint.Metadata.GetMetadata<ActionDescriptor>() is not null)
+                    continue;
+
+                // Skip SignalR hub endpoints
+                if (routeEndpoint.Metadata.Any(m => m.GetType().Name is "HubMetadata" or "NegotiateMetadata"))
+                    continue;
+
+                var httpMethodMeta = routeEndpoint.Metadata.GetMetadata<HttpMethodMetadata>();
+                if (httpMethodMeta is null || httpMethodMeta.HttpMethods.Count is 0)
+                    continue;
+
+                var rawText = routeEndpoint.RoutePattern.RawText?.TrimStart('/') ?? string.Empty;
+                // Strip route constraints: {id:int} → {id}
+                var cleanText = Regex.Replace(rawText, @"\{(\w+):[^}]+\}", "{$1}");
+                var pattern = "/" + cleanText;
+
+                // Group by first tag, or derive from route prefix
+                var tagsMetadata = routeEndpoint.Metadata.GetMetadata<ITagsMetadata>();
+                var groupName = tagsMetadata?.Tags?.FirstOrDefault() ?? GetMinimalApiGroupFromPath(pattern);
+
+                // Summary / description
+                var summaryAttr = routeEndpoint.Metadata.GetMetadata<EndpointSummaryAttribute>();
+                var description = summaryAttr?.Summary ?? routeEndpoint.DisplayName ?? pattern;
+
+                // Authorization
+                var allowAnon = routeEndpoint.Metadata.GetMetadata<IAllowAnonymous>() is not null;
+                var authorizeData = routeEndpoint.Metadata.GetMetadata<IAuthorizeData>();
+                var requiresAuth = !allowAnon && authorizeData is not null;
+                var roles = authorizeData?.Roles
+                    ?.Split(',', StringSplitOptions.RemoveEmptyEntries)
+                    .Select(r => r.Trim())
+                    .Where(r => !string.IsNullOrEmpty(r))
+                    .ToList() ?? [];
+
+                // Obsolete
+                var obsolete = routeEndpoint.Metadata.GetMetadata<ObsoleteAttribute>();
+
+                // Endpoint name (set via .WithName(...))
+                var nameMetadata = routeEndpoint.Metadata.GetMetadata<EndpointNameMetadata>();
+                var endpointName = nameMetadata?.EndpointName ?? pattern;
+
+                var parameters = BuildMinimalApiParameters(routeEndpoint);
+                var requestBody = BuildMinimalApiRequestBody(routeEndpoint);
+
+                foreach (var httpMethod in httpMethodMeta.HttpMethods)
+                {
+                    var apiEndpoint = new ApiEndpoint
+                    {
+                        Path = pattern,
+                        HttpMethodType = httpMethod,
+                        MethodName = endpointName,
+                        Description = description,
+                        Parameters = parameters,
+                        RequestBody = requestBody,
+                        RequiresAuthorization = requiresAuth,
+                        Roles = roles,
+                        IsObsolete = obsolete is not null,
+                        ObsoleteMessage = obsolete?.Message
+                    };
+
+                    if (!groups.TryGetValue(groupName, out var list))
+                    {
+                        list = [];
+                        groups[groupName] = list;
+                    }
+                    list.Add(apiEndpoint);
+                }
+            }
+        }
+
+        return groups.Select(g => new ApiController
+        {
+            Name = g.Key,
+            Description = $"{g.Key} endpoints (Minimal API)",
+            Endpoints = g.Value
+        }).ToList();
+    }
+
+    private static string GetMinimalApiGroupFromPath(string path)
+    {
+        var segments = path.TrimStart('/').Split('/');
+        var first = segments.FirstOrDefault(s => !string.IsNullOrEmpty(s) && !s.StartsWith('{'));
+        if (first is null) return "MinimalApi";
+        return char.ToUpper(first[0]) + first[1..].ToLower();
+    }
+
+    private static ApiRequestBody? BuildMinimalApiRequestBody(RouteEndpoint endpoint)
+    {
+        var acceptsMeta = endpoint.Metadata.GetMetadata<IAcceptsMetadata>();
+        if (acceptsMeta?.RequestType is null) return null;
+
+        var bodyType = acceptsMeta.RequestType;
+        // Unwrap nullable wrapper if present (e.g. CreateTodoRequest? → CreateTodoRequest)
+        var underlyingType = Nullable.GetUnderlyingType(bodyType) ?? bodyType;
+
+        var typeName = ReflectionHelper.GetFriendlyTypeName(underlyingType);
+        var schemas = new Dictionary<string, ApiSchema>();
+        var processedTypes = new HashSet<Type>();
+        var example = ReflectionHelper.GenerateExampleJson(underlyingType, schemas, processedTypes);
+
+        return new ApiRequestBody
+        {
+            Type = typeName,
+            Description = $"Request body of type {typeName}",
+            Example = example
+        };
+    }
+
+    private static List<ApiParameter> BuildMinimalApiParameters(RouteEndpoint endpoint)
+    {
+        var routeParamNames = endpoint.RoutePattern.Parameters
+            .Select(p => p.Name)
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+        var bodyType = endpoint.Metadata.GetMetadata<IAcceptsMetadata>()?.RequestType;
+        var bodyUnderlying = bodyType is not null ? (Nullable.GetUnderlyingType(bodyType) ?? bodyType) : null;
+
+        var parameters = new List<ApiParameter>();
+
+        // Route parameters
+        foreach (var routeParam in endpoint.RoutePattern.Parameters)
+        {
+            parameters.Add(new ApiParameter
+            {
+                Name = routeParam.Name,
+                Type = ResolveRouteParamType(routeParam),
+                Source = "Route",
+                Required = !routeParam.IsOptional
+            });
+        }
+
+        // Query parameters — discovered via IParameterBindingMetadata (ASP.NET Core 8+)
+        var bindingMetadata = endpoint.Metadata.GetOrderedMetadata<IParameterBindingMetadata>();
+        foreach (var meta in bindingMetadata)
+        {
+            // Skip route parameters (already added above)
+            if (routeParamNames.Contains(meta.Name)) continue;
+
+            var paramType = meta.ParameterInfo?.ParameterType;
+            if (paramType is null) continue;
+
+            var underlyingType = Nullable.GetUnderlyingType(paramType) ?? paramType;
+
+            // Skip the body type (handled separately as RequestBody)
+            if (bodyUnderlying is not null && (underlyingType == bodyUnderlying || paramType == bodyType)) continue;
+
+            // Skip ASP.NET Core / BCL injected types (HttpContext, CancellationToken, etc.)
+            if (IsFrameworkType(underlyingType)) continue;
+
+            // Complex types that are not the body type are DI services — skip them
+            if (ReflectionHelper.IsComplexType(underlyingType)) continue;
+
+            parameters.Add(new ApiParameter
+            {
+                Name = meta.Name,
+                Type = ReflectionHelper.GetFriendlyTypeName(underlyingType),
+                Source = "Query",
+                Required = !meta.IsOptional
+            });
+        }
+
+        return parameters;
+    }
+
+    private static bool IsFrameworkType(Type type)
+    {
+        var fullName = type.FullName ?? string.Empty;
+        return type == typeof(CancellationToken)
+            || fullName.StartsWith("Microsoft.AspNetCore.Http")
+            || fullName.StartsWith("System.IO.Stream")
+            || fullName.StartsWith("System.IO.Pipelines");
+    }
+
+    private static string ResolveRouteParamType(RoutePatternParameterPart param)
+    {
+        var policies = param.ParameterPolicies.Select(p => p.Content).ToList();
+        if (policies.Any(p => p is "int" or "long" or "short" or "byte")) return "integer";
+        if (policies.Any(p => p is "guid")) return "guid";
+        if (policies.Any(p => p is "bool")) return "boolean";
+        if (policies.Any(p => p is "decimal" or "double" or "float")) return "decimal";
+        return "string";
     }
 
     private static List<ApiEndpoint> ScanController(Type controllerType)
@@ -151,18 +361,18 @@ public class EndpointScanner : IEndpointScanner
             .FirstOrDefault(p => {
                 if (IsFileParameter(p.ParameterType)) return false;
                 
-                return p.GetCustomAttribute<FromBodyAttribute>() != null ||
+                return p.GetCustomAttribute<FromBodyAttribute>() is not null ||
                        (!p.ParameterType.IsPrimitive && 
                         p.ParameterType != typeof(string) && 
                         p.ParameterType != typeof(DateTime) && 
                         p.ParameterType != typeof(Guid) &&
-                        p.GetCustomAttribute<FromQueryAttribute>() == null &&
-                        p.GetCustomAttribute<FromRouteAttribute>() == null &&
-                        p.GetCustomAttribute<FromHeaderAttribute>() == null &&
-                        p.GetCustomAttribute<FromFormAttribute>() == null);
+                        p.GetCustomAttribute<FromQueryAttribute>() is null &&
+                        p.GetCustomAttribute<FromRouteAttribute>() is null &&
+                        p.GetCustomAttribute<FromHeaderAttribute>() is null &&
+                        p.GetCustomAttribute<FromFormAttribute>() is null);
             });
 
-        if (bodyParam == null) return null;
+        if (bodyParam is null) return null;
 
         var typeName = ReflectionHelper.GetFriendlyTypeName(bodyParam.ParameterType);
         var schemas = new Dictionary<string, ApiSchema>();
@@ -206,7 +416,7 @@ public class EndpointScanner : IEndpointScanner
             if (returnType.IsGenericType)
             {
                 var genericArg = returnType.GetGenericArguments().FirstOrDefault();
-                if (genericArg != null)
+                if (genericArg is not null)
                 {
                     actualReturnType = genericArg;
                 }
@@ -246,7 +456,7 @@ public class EndpointScanner : IEndpointScanner
         if (httpAttributes.Count is 0)
         {
             var routeAttr = method.GetCustomAttribute<RouteAttribute>();
-            if (routeAttr != null)
+            if (routeAttr is not null)
             {
                 httpAttributes.Add(new HttpGetAttribute(routeAttr.Template));
             }
@@ -268,17 +478,17 @@ public class EndpointScanner : IEndpointScanner
     private static bool IsFileParameter(Type parameterType)
     {
         // Check for IFormFile by fully qualified name to avoid dependency
-        if (parameterType.FullName == "Microsoft.AspNetCore.Http.IFormFile")
+        if (parameterType.FullName is "Microsoft.AspNetCore.Http.IFormFile")
             return true;
 
         // Check for IFormFileCollection
-        if (parameterType.FullName == "Microsoft.AspNetCore.Http.IFormFileCollection")
+        if (parameterType.FullName is "Microsoft.AspNetCore.Http.IFormFileCollection")
             return true;
 
         // Check if type implements IFormFile interface
         var iFormFileType = parameterType.GetInterfaces()
-            .FirstOrDefault(i => i.FullName == "Microsoft.AspNetCore.Http.IFormFile");
-        if (iFormFileType != null)
+            .FirstOrDefault(i => i.FullName is "Microsoft.AspNetCore.Http.IFormFile");
+        if (iFormFileType is not null)
             return true;
 
         // Check for collections/arrays of IFormFile (List<IFormFile>, IEnumerable<IFormFile>, etc.)
@@ -293,7 +503,7 @@ public class EndpointScanner : IEndpointScanner
         if (parameterType.IsArray)
         {
             var elementType = parameterType.GetElementType();
-            if (elementType != null && IsFileParameter(elementType))
+            if (elementType is not null && IsFileParameter(elementType))
                 return true;
         }
 
@@ -312,7 +522,7 @@ public class EndpointScanner : IEndpointScanner
             
             // Get the actual header name if specified in FromHeader attribute
             string? headerName = null;
-            if (parameterSource == "Header")
+            if (parameterSource is "Header")
             {
                 var fromHeaderAttr = param.GetCustomAttribute<FromHeaderAttribute>();
                 headerName = fromHeaderAttr?.Name;
@@ -323,7 +533,7 @@ public class EndpointScanner : IEndpointScanner
                 Name = param.Name ?? "unknown",
                 Type = typeName,
                 Required = param is { HasDefaultValue: false, ParameterType.IsValueType: false } ||
-                          (param.ParameterType.IsValueType && Nullable.GetUnderlyingType(param.ParameterType) == null),
+                          (param.ParameterType.IsValueType && Nullable.GetUnderlyingType(param.ParameterType) is null),
                 DefaultValue = param.HasDefaultValue ? param.DefaultValue : null,
                 Source = parameterSource,
                 IsFile = isFileParameter,

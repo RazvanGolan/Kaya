@@ -65,10 +65,10 @@ public static class AttributeHelper
     /// <returns>Tuple indicating if member is obsolete and the obsolete message</returns>
     public static (bool IsObsolete, string? Message) GetObsoleteInfo(MemberInfo? member)
     {
-        if (member == null) return (false, null);
+        if (member is null) return (false, null);
         
         var obsoleteAttr = member.GetCustomAttribute<ObsoleteAttribute>();
-        if (obsoleteAttr != null)
+        if (obsoleteAttr is not null)
         {
             return (true, obsoleteAttr.Message);
         }
