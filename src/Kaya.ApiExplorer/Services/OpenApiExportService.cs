@@ -96,6 +96,11 @@ public class OpenApiExportService : IOpenApiExportService
                 RegisterSchemas(endpoint.RequestBody.Type, endpoint.RequestBody.Schema, registry);
             if (endpoint.Response?.Schema is not null)
                 RegisterSchemas(endpoint.Response.Type, endpoint.Response.Schema, registry);
+            foreach (var pr in endpoint.ProducesResponses)
+            {
+                if (pr.Schema is not null && !string.IsNullOrWhiteSpace(pr.Type))
+                    RegisterSchemas(pr.Type, pr.Schema, registry);
+            }
         }
 
         var enumTypeNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
@@ -410,7 +415,49 @@ public class OpenApiExportService : IOpenApiExportService
     {
         var responses = new Dictionary<string, object>();
 
-        if (endpoint.Response is not null)
+        // If explicit [ProducesResponseType] attributes are present, use them
+        if (endpoint.ProducesResponses.Count > 0)
+        {
+            foreach (var pr in endpoint.ProducesResponses)
+            {
+                var statusKey = pr.StatusCode.ToString();
+                if (!string.IsNullOrWhiteSpace(pr.Type))
+                {
+                    var schema = BuildSchemaFromFriendlyType(pr.Type, ctx);
+                    var mediaTypeWithExample = new Dictionary<string, object> { ["schema"] = schema };
+                    var mediaTypeNoExample = new Dictionary<string, object> { ["schema"] = schema };
+
+                    if (!string.IsNullOrWhiteSpace(pr.Example))
+                    {
+                        try
+                        {
+                            var parsed = System.Text.Json.JsonSerializer.Deserialize<object>(pr.Example);
+                            if (parsed is not null) mediaTypeWithExample["example"] = parsed;
+                        }
+                        catch { /* ignore */ }
+                    }
+
+                    responses[statusKey] = new Dictionary<string, object>
+                    {
+                        ["description"] = pr.Description,
+                        ["content"] = new Dictionary<string, object>
+                        {
+                            ["text/plain"] = mediaTypeNoExample,
+                            ["application/json"] = mediaTypeWithExample,
+                            ["text/json"] = mediaTypeNoExample
+                        }
+                    };
+                }
+                else
+                {
+                    responses[statusKey] = new Dictionary<string, object>
+                    {
+                        ["description"] = pr.Description
+                    };
+                }
+            }
+        }
+        else if (endpoint.Response is not null)
         {
             var schema = BuildSchemaFromFriendlyType(endpoint.Response.Type, ctx);
             var mediaTypeWithExample = new Dictionary<string, object> { ["schema"] = schema };
@@ -448,8 +495,8 @@ public class OpenApiExportService : IOpenApiExportService
 
         if (endpoint.RequiresAuthorization)
         {
-            responses["401"] = new Dictionary<string, object> { ["description"] = "Unauthorized" };
-            responses["403"] = new Dictionary<string, object> { ["description"] = "Forbidden" };
+            responses.TryAdd("401", new Dictionary<string, object> { ["description"] = "Unauthorized" });
+            responses.TryAdd("403", new Dictionary<string, object> { ["description"] = "Forbidden" });
         }
 
         return responses;

@@ -58,7 +58,9 @@ public class UsersController : ControllerBase
     /// <param name="role">Filter by user role</param>
     /// <param name="search">Search in name or email</param>
     /// <returns>List of users</returns>
+    /// <response code="200">Returns the list of users</response>
     [HttpGet]
+    [ProducesResponseType(typeof(IEnumerable<User>), 200)]
     public ActionResult<IEnumerable<User>> GetUsers(
         [FromQuery] bool? isActive = null, 
         [FromQuery] UserRole? role = null,
@@ -90,7 +92,11 @@ public class UsersController : ControllerBase
     /// </summary>
     /// <param name="id">User ID</param>
     /// <returns>User details</returns>
+    /// <response code="200">Returns the requested user</response>
+    /// <response code="404">User with the specified ID was not found</response>
     [HttpGet("{id}")]
+    [ProducesResponseType(typeof(User), 200)]
+    [ProducesResponseType(404)]
     public ActionResult<User> GetUser(int id)
     {
         var user = _users.FirstOrDefault(u => u.Id == id);
@@ -107,7 +113,11 @@ public class UsersController : ControllerBase
     /// </summary>
     /// <param name="request">User creation data</param>
     /// <returns>Created user</returns>
+    /// <response code="201">User created successfully</response>
+    /// <response code="400">Validation failed — name and email are required</response>
     [HttpPost]
+    [ProducesResponseType(typeof(User), 201)]
+    [ProducesResponseType(400)]
     public ActionResult<User> CreateUser([FromBody] CreateUserRequest request)
     {
         if (string.IsNullOrEmpty(request.Name) || string.IsNullOrEmpty(request.Email))
@@ -138,7 +148,13 @@ public class UsersController : ControllerBase
     /// <param name="id">User ID</param>
     /// <param name="request">User update data</param>
     /// <returns>Updated user</returns>
+    /// <response code="200">Returns the updated user</response>
+    /// <response code="400">Validation failed</response>
+    /// <response code="404">User with the specified ID was not found</response>
     [HttpPut("{id}")]
+    [ProducesResponseType(typeof(User), 200)]
+    [ProducesResponseType(400)]
+    [ProducesResponseType(404)]
     [Obsolete("Use PATCH endpoint instead for partial updates")]
     public ActionResult<User> UpdateUser(int id, [FromBody] UpdateUserRequest request)
     {
@@ -181,7 +197,11 @@ public class UsersController : ControllerBase
     /// </summary>
     /// <param name="id">User ID</param>
     /// <returns>Success message</returns>
+    /// <response code="200">User deleted successfully</response>
+    /// <response code="404">User with the specified ID was not found</response>
     [HttpDelete("{id}")]
+    [ProducesResponseType(200)]
+    [ProducesResponseType(404)]
     public ActionResult DeleteUser(int id)
     {
         var user = _users.FirstOrDefault(u => u.Id == id);
@@ -198,7 +218,9 @@ public class UsersController : ControllerBase
     /// Gets user statistics
     /// </summary>
     /// <returns>User statistics</returns>
+    /// <response code="200">Returns aggregated user statistics</response>
     [HttpGet("stats")]
+    [ProducesResponseType(200)]
     public ActionResult<object> GetUserStats()
     {
         var averageAgeDays = _users.Any() ? 

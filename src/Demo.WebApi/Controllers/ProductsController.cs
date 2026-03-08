@@ -71,7 +71,9 @@ public class ProductsController : ControllerBase
     /// <param name="minPrice">Minimum price filter</param>
     /// <param name="maxPrice">Maximum price filter</param>
     /// <returns>List of products</returns>
+    /// <response code="200">Returns the list of products matching the filters</response>
     [HttpGet]
+    [ProducesResponseType(typeof(IEnumerable<Product>), 200)]
     public ActionResult<IEnumerable<Product>> GetProducts(
         [FromQuery] ProductCategory? category = null,
         [FromQuery] decimal? minPrice = null,
@@ -102,7 +104,11 @@ public class ProductsController : ControllerBase
     /// </summary>
     /// <param name="id">Product ID</param>
     /// <returns>Product details</returns>
+    /// <response code="200">Returns the requested product</response>
+    /// <response code="404">Product with the specified ID was not found</response>
     [HttpGet("{id}")]
+    [ProducesResponseType(typeof(Product), 200)]
+    [ProducesResponseType(404)]
     public ActionResult<Product> GetProduct(int id)
     {
         var product = _products.FirstOrDefault(p => p.Id == id);
@@ -119,8 +125,16 @@ public class ProductsController : ControllerBase
     /// </summary>
     /// <param name="request">Product creation data</param>
     /// <returns>Created product</returns>
+    /// <response code="201">Product created successfully</response>
+    /// <response code="400">Validation failed — product name is required</response>
+    /// <response code="401">Authentication required</response>
+    /// <response code="403">Only Admin role can create products</response>
     [HttpPost]
     [Authorize(Roles = "Admin")]
+    [ProducesResponseType(typeof(Product), 201)]
+    [ProducesResponseType(400)]
+    [ProducesResponseType(401)]
+    [ProducesResponseType(403)]
     public ActionResult<Product> CreateProduct([FromBody] CreateProductRequest request)
     {
         if (string.IsNullOrEmpty(request.Name))
@@ -150,8 +164,16 @@ public class ProductsController : ControllerBase
     /// <param name="id">Product ID</param>
     /// <param name="quantity">New stock quantity</param>
     /// <returns>Updated product</returns>
+    /// <response code="200">Returns the product with updated stock</response>
+    /// <response code="401">Authentication required</response>
+    /// <response code="403">Only Admin or Manager role can update stock</response>
+    /// <response code="404">Product with the specified ID was not found</response>
     [HttpPatch("{id}/stock")]
     [Authorize(Roles = "Admin,Manager")]
+    [ProducesResponseType(typeof(Product), 200)]
+    [ProducesResponseType(401)]
+    [ProducesResponseType(403)]
+    [ProducesResponseType(404)]
     public ActionResult<Product> UpdateStock(int id, [FromBody] int quantity)
     {
         var product = _products.FirstOrDefault(p => p.Id == id);
@@ -180,7 +202,11 @@ public class ProductsController : ControllerBase
     /// </summary>
     /// <param name="query">Search query</param>
     /// <returns>Matching products</returns>
+    /// <response code="200">Returns matching products</response>
+    /// <response code="400">Search query is required</response>
     [HttpGet("search")]
+    [ProducesResponseType(typeof(IEnumerable<Product>), 200)]
+    [ProducesResponseType(400)]
     public ActionResult<IEnumerable<Product>> SearchProducts([FromQuery] string query)
     {
         if (string.IsNullOrEmpty(query))
@@ -201,8 +227,16 @@ public class ProductsController : ControllerBase
     /// <param name="id">Product ID</param>
     /// <param name="file">Image file to upload</param>
     /// <returns>Upload result</returns>
+    /// <response code="200">Image uploaded successfully</response>
+    /// <response code="400">Invalid file — wrong type or exceeds 5 MB limit</response>
+    /// <response code="401">Authentication required</response>
+    /// <response code="404">Product with the specified ID was not found</response>
     [HttpPost("{id}/image")]
     [Authorize(Roles = "Admin")]
+    [ProducesResponseType(200)]
+    [ProducesResponseType(400)]
+    [ProducesResponseType(401)]
+    [ProducesResponseType(404)]
     public ActionResult UploadProductImage(int id, IFormFile file)
     {
         var product = _products.FirstOrDefault(p => p.Id == id);

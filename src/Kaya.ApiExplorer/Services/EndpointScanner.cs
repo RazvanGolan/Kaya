@@ -162,6 +162,7 @@ public class EndpointScanner(KayaApiExplorerOptions options) : IEndpointScanner
 
                 var parameters = BuildMinimalApiParameters(routeEndpoint);
                 var requestBody = BuildMinimalApiRequestBody(routeEndpoint, description);
+                var producesResponses = BuildMinimalApiProducesResponses(routeEndpoint);
 
                 foreach (var httpMethod in httpMethodMeta.HttpMethods)
                 {
@@ -173,6 +174,7 @@ public class EndpointScanner(KayaApiExplorerOptions options) : IEndpointScanner
                         Description = description,
                         Parameters = parameters,
                         RequestBody = requestBody,
+                        ProducesResponses = producesResponses,
                         RequiresAuthorization = requiresAuth,
                         Roles = roles,
                         IsObsolete = obsolete is not null,
@@ -206,8 +208,7 @@ public class EndpointScanner(KayaApiExplorerOptions options) : IEndpointScanner
     }
 
     private static ApiRequestBody? BuildMinimalApiRequestBody(RouteEndpoint endpoint, string endpointDescription)
-    {
-        var acceptsMeta = endpoint.Metadata.GetMetadata<IAcceptsMetadata>();
+    {        var acceptsMeta = endpoint.Metadata.GetMetadata<IAcceptsMetadata>();
         if (acceptsMeta?.RequestType is null) return null;
 
         var bodyType = acceptsMeta.RequestType;
@@ -233,6 +234,42 @@ public class EndpointScanner(KayaApiExplorerOptions options) : IEndpointScanner
             Example = example,
             Schema = ReflectionHelper.GenerateSchemaForType(schemaType)
         };
+    }
+
+    private static List<ApiProducesResponse> BuildMinimalApiProducesResponses(RouteEndpoint endpoint)
+    {
+        var metadataList = endpoint.Metadata.GetOrderedMetadata<IProducesResponseTypeMetadata>();
+        if (metadataList.Count is 0)
+            return [];
+
+        var result = new List<ApiProducesResponse>();
+        foreach (var meta in metadataList.OrderBy(m => m.StatusCode))
+        {
+            var type = meta.Type;
+            var hasBody = type is not null && type != typeof(void);
+            var typeName = hasBody ? ReflectionHelper.GetFriendlyTypeName(type!) : string.Empty;
+
+            string example = string.Empty;
+            ApiSchema? schema = null;
+            if (hasBody)
+            {
+                var schemas = new Dictionary<string, ApiSchema>();
+                var processedTypes = new HashSet<Type>();
+                example = ReflectionHelper.GenerateExampleJson(type!, schemas, processedTypes);
+                schema = ReflectionHelper.GenerateSchemaForType(UnwrapCollectionType(type!));
+            }
+
+            result.Add(new ApiProducesResponse
+            {
+                StatusCode = meta.StatusCode,
+                Type = typeName,
+                Description = GetDefaultStatusDescription(meta.StatusCode),
+                Example = example,
+                Schema = schema
+            });
+        }
+
+        return result;
     }
 
     private static List<ApiParameter> BuildMinimalApiParameters(RouteEndpoint endpoint)
@@ -345,6 +382,7 @@ public class EndpointScanner(KayaApiExplorerOptions options) : IEndpointScanner
                         Parameters = GetMethodParameters(method, fullPath),
                         RequestBody = GetMethodRequestBody(method),
                         Response = GetMethodResponse(method),
+                        ProducesResponses = GetProducesResponses(method),
                         RequiresAuthorization = requiresAuth,
                         Roles = roles,
                         IsObsolete = isObsolete,
@@ -494,6 +532,65 @@ public class EndpointScanner(KayaApiExplorerOptions options) : IEndpointScanner
         }
         return type;
     }
+
+    private static List<ApiProducesResponse> GetProducesResponses(MethodInfo method)
+    {
+        var attributes = method.GetCustomAttributes<ProducesResponseTypeAttribute>()
+            .OrderBy(a => a.StatusCode)
+            .ToList();
+
+        if (attributes.Count is 0)
+            return [];
+
+        var result = new List<ApiProducesResponse>();
+        foreach (var attr in attributes)
+        {
+            var type = attr.Type;
+            // typeof(void) means no response body
+            var hasBody = type is not null && type != typeof(void);
+            var typeName = hasBody ? ReflectionHelper.GetFriendlyTypeName(type!) : string.Empty;
+
+            string example = string.Empty;
+            ApiSchema? schema = null;
+            if (hasBody)
+            {
+                var schemas = new Dictionary<string, ApiSchema>();
+                var processedTypes = new HashSet<Type>();
+                example = ReflectionHelper.GenerateExampleJson(type!, schemas, processedTypes);
+                schema = ReflectionHelper.GenerateSchemaForType(UnwrapCollectionType(type!));
+            }
+
+            var description = XmlDocumentationHelper.GetResponseDescription(method, attr.StatusCode)
+                ?? GetDefaultStatusDescription(attr.StatusCode);
+
+            result.Add(new ApiProducesResponse
+            {
+                StatusCode = attr.StatusCode,
+                Type = typeName,
+                Description = description,
+                Example = example,
+                Schema = schema
+            });
+        }
+
+        return result;
+    }
+
+    private static string GetDefaultStatusDescription(int statusCode) => statusCode switch
+    {
+        200 => "OK",
+        201 => "Created",
+        202 => "Accepted",
+        204 => "No Content",
+        400 => "Bad Request",
+        401 => "Unauthorized",
+        403 => "Forbidden",
+        404 => "Not Found",
+        409 => "Conflict",
+        422 => "Unprocessable Entity",
+        500 => "Internal Server Error",
+        _ => "Response"
+    };
     
     private static List<HttpMethodAttribute> GetHttpMethodAttributes(MethodInfo method)
     {

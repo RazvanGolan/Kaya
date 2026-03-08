@@ -21,8 +21,10 @@ public class OrdersController : ControllerBase
     /// <param name="endDate">End date for date range filter</param>
     /// <param name="pagination">Pagination parameters</param>
     /// <returns>Paginated list of orders with metadata</returns>
+    /// <response code="200">Returns the paginated list of orders</response>
     [HttpGet]
     [AllowAnonymous]
+    [ProducesResponseType(typeof(ApiResponse<List<Order>>), 200)]
     public ActionResult<ApiResponse<ProductSearchResponse>> GetOrders(
         [FromQuery] OrderStatus? status = null,
         [FromQuery] int? userId = null,
@@ -66,7 +68,13 @@ public class OrdersController : ControllerBase
     /// </summary>
     /// <param name="id">Order ID</param>
     /// <returns>Complete order details</returns>
+    /// <response code="200">Returns the complete order</response>
+    /// <response code="401">Authentication required</response>
+    /// <response code="404">Order with the specified ID was not found</response>
     [HttpGet("{id}")]
+    [ProducesResponseType(typeof(ApiResponse<Order>), 200)]
+    [ProducesResponseType(401)]
+    [ProducesResponseType(404)]
     public ActionResult<ApiResponse<Order>> GetOrder(int id)
     {
         var order = _orders.FirstOrDefault(o => o.Id == id);
@@ -91,7 +99,13 @@ public class OrdersController : ControllerBase
     /// </summary>
     /// <param name="request">Order creation request with items, shipping, and billing</param>
     /// <returns>Created order with calculated totals</returns>
+    /// <response code="201">Order created successfully with calculated totals</response>
+    /// <response code="400">Validation failed — order must contain at least one item</response>
+    /// <response code="401">Authentication required</response>
     [HttpPost]
+    [ProducesResponseType(typeof(ApiResponse<Order>), 201)]
+    [ProducesResponseType(typeof(ApiResponse<Order>), 400)]
+    [ProducesResponseType(401)]
     public ActionResult<ApiResponse<Order>> CreateOrder([FromBody] CreateOrderRequest request)
     {
         if (!request.Items.Any())
@@ -169,7 +183,15 @@ public class OrdersController : ControllerBase
     /// <param name="newStatus">New order status</param>
     /// <param name="note">Optional note for the status change</param>
     /// <returns>Updated order</returns>
+    /// <response code="200">Returns the order with updated status</response>
+    /// <response code="400">Invalid status transition for the current order state</response>
+    /// <response code="401">Authentication required</response>
+    /// <response code="404">Order with the specified ID was not found</response>
     [HttpPatch("{id}/status")]
+    [ProducesResponseType(typeof(ApiResponse<Order>), 200)]
+    [ProducesResponseType(typeof(ApiResponse<Order>), 400)]
+    [ProducesResponseType(401)]
+    [ProducesResponseType(404)]
     public ActionResult<ApiResponse<Order>> UpdateOrderStatus(
         int id,
         [FromBody] OrderStatus newStatus,
@@ -240,8 +262,14 @@ public class OrdersController : ControllerBase
     /// <param name="endDate">Report end date</param>
     /// <param name="groupBy">Group results by day, week, or month</param>
     /// <returns>Analytics report with sales metrics</returns>
+    /// <response code="200">Returns the analytics report for the requested period</response>
+    /// <response code="401">Authentication required</response>
+    /// <response code="403">Only Admin role can access analytics</response>
     [HttpGet("analytics")]
     [Authorize(Roles = "Admin")]
+    [ProducesResponseType(typeof(ApiResponse<AnalyticsReport>), 200)]
+    [ProducesResponseType(401)]
+    [ProducesResponseType(403)]
     public ActionResult<ApiResponse<AnalyticsReport>> GetAnalytics(
         [FromQuery] DateTime startDate,
         [FromQuery] DateTime endDate,
@@ -298,8 +326,14 @@ public class OrdersController : ControllerBase
     /// </summary>
     /// <param name="updates">Dictionary of order IDs and their new status</param>
     /// <returns>Results of bulk update operation</returns>
+    /// <response code="200">Returns per-order update results</response>
+    /// <response code="401">Authentication required</response>
+    /// <response code="403">Only Admin or Manager role can bulk update orders</response>
     [HttpPatch("bulk-update")]
     [Authorize(Roles = "Admin,Manager")]
+    [ProducesResponseType(typeof(ApiResponse<Dictionary<int, string>>), 200)]
+    [ProducesResponseType(401)]
+    [ProducesResponseType(403)]
     [Obsolete("This endpoint will be removed in v2.0. Use the new batch processing API instead.")]
     public ActionResult<ApiResponse<Dictionary<int, string>>> BulkUpdateOrders(
         [FromBody] Dictionary<int, OrderStatus> updates)

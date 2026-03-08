@@ -85,6 +85,27 @@ public static class XmlDocumentationHelper
         return CleanDocumentationText(returnsElement?.Value);
     }
 
+    /// <summary>
+    /// Gets the response description for a specific HTTP status code from XML doc
+    /// <response code="200">Success</response> tags
+    /// </summary>
+    public static string? GetResponseDescription(MethodInfo method, int statusCode)
+    {
+        var xmlDoc = GetXmlDocumentation(method.DeclaringType?.Assembly);
+        if (xmlDoc is null) return null;
+
+        var memberName = GetMethodMemberName(method);
+        var member = xmlDoc.Descendants("member")
+            .FirstOrDefault(m => m.Attribute("name")?.Value == memberName);
+
+        if (member is null) return null;
+
+        var responseElement = member.Elements("response")
+            .FirstOrDefault(r => r.Attribute("code")?.Value == statusCode.ToString());
+
+        return CleanDocumentationText(responseElement?.Value);
+    }
+
     private static string? GetSummary(XDocument xmlDoc, string memberName)
     {
         try

@@ -20,6 +20,7 @@ public class ApiEndpoint
     public List<ApiParameter> Parameters { get; set; } = [];
     public ApiRequestBody? RequestBody { get; set; }
     public ApiResponse? Response { get; set; }
+    public List<ApiProducesResponse> ProducesResponses { get; set; } = [];
     public bool RequiresAuthorization { get; set; }
     public List<string> Roles { get; set; } = [];
     public bool IsObsolete { get; set; }
@@ -64,6 +65,15 @@ public class ApiResponse
     public string Type { get; set; } = string.Empty;
     public string Example { get; set; } = string.Empty;
     public string Description { get; set; } = string.Empty;
+    public ApiSchema? Schema { get; set; }
+}
+
+public class ApiProducesResponse
+{
+    public int StatusCode { get; set; }
+    public string Type { get; set; } = string.Empty;
+    public string Description { get; set; } = string.Empty;
+    public string Example { get; set; } = string.Empty;
     public ApiSchema? Schema { get; set; }
 }
 

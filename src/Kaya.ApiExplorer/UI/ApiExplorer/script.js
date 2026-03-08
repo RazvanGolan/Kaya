@@ -1143,38 +1143,119 @@ function renderRequest(endpoint) {
 }
 
 function renderResponses(endpoint) {
-  if (!endpoint.response) {
+  const hasProduces = endpoint.producesResponses && endpoint.producesResponses.length > 0;
+  const hasDefaultResponse = !!endpoint.response;
+
+  if (!hasProduces && !hasDefaultResponse) {
     return '<p class="text-muted">No response body returned</p>'
   }
 
-  const escapedType = escapeHtml(endpoint.response.type);
+  let html = '';
 
-  return `
-    <div>
-      <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 12px;">
-        <h4>Response Body</h4>
-        <span class="badge">${escapedType}</span>
-      </div>
-      <div class="code-block">
-        <div style="position: absolute; top: 8px; right: 8px; z-index: 1; display: flex; gap: 4px;">
-          <button class="copy-btn" onclick="copyToClipboard(this)" title="Copy to clipboard">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
-              <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
-            </svg>
-          </button>
-          <button class="copy-btn save-btn" onclick="saveToFile(this, 'response-body')" title="Save to file">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path>
-              <polyline points="17,21 17,13 7,13 7,21"></polyline>
-              <polyline points="7,3 7,8 15,8"></polyline>
-            </svg>
-          </button>
+  if (hasProduces) {
+    html += '<div style="display: flex; flex-direction: column; gap: 12px;">';
+    for (const pr of endpoint.producesResponses) {
+      const statusClass = pr.statusCode >= 500 ? 'delete'
+        : pr.statusCode >= 400 ? 'put'
+        : pr.statusCode >= 300 ? 'get'
+        : 'post';
+
+      const hasBody = pr.type && pr.type.length > 0;
+      const escapedType = hasBody ? escapeHtml(pr.type) : '';
+      const escapedDesc = escapeHtml(pr.description || '');
+
+      let bodyHtml = '';
+      if (hasBody && pr.example) {
+        bodyHtml = `
+          <div class="code-block" style="margin-top: 8px;">
+            <div style="position: absolute; top: 8px; right: 8px; z-index: 1; display: flex; gap: 4px;">
+              <button class="copy-btn" onclick="copyToClipboard(this)" title="Copy to clipboard">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                  <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                </svg>
+              </button>
+            </div>
+            <pre><code>${escapeHtml(pr.example)}</code></pre>
+          </div>`;
+      }
+
+      html += `
+        <div style="border: 1px solid var(--border-primary); border-radius: 6px; overflow: hidden;">
+          <div style="display: flex; align-items: center; gap: 8px; padding: 10px 12px; background: var(--bg-secondary);">
+            <span class="badge ${statusClass}" style="font-size: 13px; font-weight: 700; min-width: 40px; text-align: center;">${pr.statusCode}</span>
+            ${escapedDesc ? `<span style="color: var(--text-primary); font-weight: 500;">${escapedDesc}</span>` : ''}
+            ${hasBody ? `<span class="badge" style="margin-left: auto;">${escapedType}</span>` : ''}
+          </div>
+          ${bodyHtml ? `<div style="padding: 0 12px 12px;">${bodyHtml}</div>` : ''}
+        </div>`;
+    }
+    html += '</div>';
+
+    // Also show the inferred return type below, as extra context, if it doesn't duplicate a 200
+    if (hasDefaultResponse) {
+      const has200 = endpoint.producesResponses.some(pr => pr.statusCode === 200 || pr.statusCode === 201);
+      if (!has200) {
+        const escapedType = escapeHtml(endpoint.response.type);
+        html += `
+          <div style="margin-top: 16px;">
+            <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px;">
+              <h4>Return Type</h4>
+              <span class="badge">${escapedType}</span>
+            </div>
+            <div class="code-block">
+              <div style="position: absolute; top: 8px; right: 8px; z-index: 1; display: flex; gap: 4px;">
+                <button class="copy-btn" onclick="copyToClipboard(this)" title="Copy to clipboard">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                    <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                  </svg>
+                </button>
+                <button class="copy-btn save-btn" onclick="saveToFile(this, 'response-body')" title="Save to file">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path>
+                    <polyline points="17,21 17,13 7,13 7,21"></polyline>
+                    <polyline points="7,3 7,8 15,8"></polyline>
+                  </svg>
+                </button>
+              </div>
+              <pre><code>${endpoint.response.example}</code></pre>
+            </div>
+          </div>`;
+      }
+    }
+  } else {
+    // Fallback: original single-response display
+    const escapedType = escapeHtml(endpoint.response.type);
+    html = `
+      <div>
+        <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 12px;">
+          <h4>Response Body</h4>
+          <span class="badge">${escapedType}</span>
         </div>
-        <pre><code>${endpoint.response.example}</code></pre>
+        <div class="code-block">
+          <div style="position: absolute; top: 8px; right: 8px; z-index: 1; display: flex; gap: 4px;">
+            <button class="copy-btn" onclick="copyToClipboard(this)" title="Copy to clipboard">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+              </svg>
+            </button>
+            <button class="copy-btn save-btn" onclick="saveToFile(this, 'response-body')" title="Save to file">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path>
+                <polyline points="17,21 17,13 7,13 7,21"></polyline>
+                <polyline points="7,3 7,8 15,8"></polyline>
+              </svg>
+            </button>
+          </div>
+          <pre><code>${endpoint.response.example}</code></pre>
+        </div>
       </div>
-    </div>
-  `
+    `;
+  }
+
+  return html;
 }
 
 function renderTryItOut(endpoint, index) {
