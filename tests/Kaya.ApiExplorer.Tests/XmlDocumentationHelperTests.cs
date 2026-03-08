@@ -1,4 +1,5 @@
 using Kaya.ApiExplorer.Helpers;
+using Microsoft.AspNetCore.Mvc;
 
 namespace Kaya.ApiExplorer.Tests;
 
@@ -87,5 +88,71 @@ public class XmlDocumentationHelperTests
 
         // Assert
         Assert.Null(summary);
+    }
+
+    // -------------------------------------------------------------------------
+    // GetResponseDescription tests
+    // -------------------------------------------------------------------------
+
+    /// <summary>
+    /// Sample method with per-status-code response docs
+    /// </summary>
+    /// <response code="200">Request succeeded</response>
+    /// <response code="404">Resource was not found</response>
+    /// <response code="400">Validation error occurred</response>
+    public IActionResult SampleMethodWithResponses(int id) => throw new NotImplementedException();
+
+    [Fact]
+    public void GetResponseDescription_Returns200Description_WhenXmlExists()
+    {
+        var method = typeof(XmlDocumentationHelperTests).GetMethod(nameof(SampleMethodWithResponses));
+
+        var desc = XmlDocumentationHelper.GetResponseDescription(method!, 200);
+
+        Assert.NotNull(desc);
+        Assert.Contains("succeeded", desc);
+    }
+
+    [Fact]
+    public void GetResponseDescription_Returns404Description_WhenXmlExists()
+    {
+        var method = typeof(XmlDocumentationHelperTests).GetMethod(nameof(SampleMethodWithResponses));
+
+        var desc = XmlDocumentationHelper.GetResponseDescription(method!, 404);
+
+        Assert.NotNull(desc);
+        Assert.Contains("not found", desc, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void GetResponseDescription_Returns400Description_WhenXmlExists()
+    {
+        var method = typeof(XmlDocumentationHelperTests).GetMethod(nameof(SampleMethodWithResponses));
+
+        var desc = XmlDocumentationHelper.GetResponseDescription(method!, 400);
+
+        Assert.NotNull(desc);
+        Assert.Contains("Validation", desc, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void GetResponseDescription_ReturnsNull_WhenStatusCodeNotDocumented()
+    {
+        var method = typeof(XmlDocumentationHelperTests).GetMethod(nameof(SampleMethodWithResponses));
+
+        var desc = XmlDocumentationHelper.GetResponseDescription(method!, 500);
+
+        Assert.Null(desc);
+    }
+
+    [Fact]
+    public void GetResponseDescription_ReturnsNull_WhenMethodHasNoXmlDoc()
+    {
+        // SampleMethod has no <response> tags
+        var method = typeof(XmlDocumentationHelperTests).GetMethod(nameof(SampleMethod));
+
+        var desc = XmlDocumentationHelper.GetResponseDescription(method!, 200);
+
+        Assert.Null(desc);
     }
 }

@@ -716,10 +716,9 @@ function handleLogoClick() {
     logoClickCount = 0;
   }, 1000);
   
-  // Activate easter egg after 3 clicks
   if (logoClickCount >= 3) {
     logoClickCount = 0;
-    activateEasterEgg();
+    activateSecret();
     
     if (logoClickTimer) {
       clearTimeout(logoClickTimer);
@@ -727,16 +726,15 @@ function handleLogoClick() {
   }
 }
 
-function activateEasterEgg() {
+function activateSecret() {
   // Add fun visual effect
   const brand = document.querySelector('.brand');
-  brand.style.animation = 'easterEggPulse 0.6s ease-in-out';
+  brand.style.animation = 'secretPulse 0.6s ease-in-out';
   
-  // Cycle to easter egg theme
-  if (currentTheme === 'easter-egg') {
+  if (currentTheme === 'samurai-red') {
     currentTheme = 'light';
   } else {
-    currentTheme = 'easter-egg';
+    currentTheme = 'samurai-red';
   }
   
   document.documentElement.setAttribute('data-theme', currentTheme);
@@ -2553,7 +2551,6 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
   })
 
-  // Easter egg logo click handler
   const brandElement = document.querySelector('.brand')
   if (brandElement) {
     brandElement.addEventListener("click", handleLogoClick)

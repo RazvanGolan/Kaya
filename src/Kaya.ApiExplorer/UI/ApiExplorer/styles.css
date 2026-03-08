@@ -34,6 +34,26 @@
   --perf-good: #22c55e;
   --perf-warning: #f59e0b;
   --perf-bad: #ef4444;
+  --badge-patch-bg: #e0e7ff;
+  --badge-patch-text: #3730a3;
+  --badge-patch-border: #c7d2fe;
+  --badge-auth-bg: #fef3c7;
+  --badge-auth-text: #92400e;
+  --badge-auth-border: #fde68a;
+  --badge-obsolete-bg: #fee2e2;
+  --badge-obsolete-text: #991b1b;
+  --badge-obsolete-border: #fecaca;
+  --badge-file-bg: #ede9fe;
+  --badge-file-text: #8b5cf6;
+  --badge-file-border: #c4b5fd;
+  --badge-constraint-bg: #e0f2fe;
+  --badge-constraint-text: #0369a1;
+  --badge-constraint-border: #bae6fd;
+  --btn-purple-bg: #ede9fe;
+  --btn-purple-text: #8b5cf6;
+  --btn-purple-border: #c4b5fd;
+  --btn-purple-bg-hover: #ddd6fe;
+  --btn-purple-shadow: rgba(139, 92, 246, 0.2);
 }
 
 [data-theme="dark"] {
@@ -72,10 +92,30 @@
   --perf-good: #22c55e;
   --perf-warning: #f59e0b;
   --perf-bad: #ef4444;
+  --badge-patch-bg: #312e81;
+  --badge-patch-text: #c7d2fe;
+  --badge-patch-border: #4338ca;
+  --badge-auth-bg: #78350f;
+  --badge-auth-text: #fde68a;
+  --badge-auth-border: #b45309;
+  --badge-obsolete-bg: #7f1d1d;
+  --badge-obsolete-text: #fecaca;
+  --badge-obsolete-border: #991b1b;
+  --badge-file-bg: rgba(139, 92, 246, 0.1);
+  --badge-file-text: #c4b5fd;
+  --badge-file-border: #8b5cf6;
+  --badge-constraint-bg: rgba(3, 105, 161, 0.15);
+  --badge-constraint-text: #7dd3fc;
+  --badge-constraint-border: #0369a1;
+  --btn-purple-bg: rgba(139, 92, 246, 0.1);
+  --btn-purple-text: #c4b5fd;
+  --btn-purple-border: #8b5cf6;
+  --btn-purple-bg-hover: rgba(139, 92, 246, 0.2);
+  --btn-purple-shadow: rgba(139, 92, 246, 0.3);
 }
 
-[data-theme="easter-egg"] {
-  /* Easter egg theme - Red & Yellow vibes */
+[data-theme="samurai-red"] {
+  /* Samurai Red theme */
   --bg-primary: #1a0f0d;
   --bg-secondary: #2a1815;
   --bg-tertiary: #3d2620;
@@ -110,6 +150,26 @@
   --perf-good: #daa678;
   --perf-warning: #c79e6e;
   --perf-bad: #ffb3a8;
+  --badge-patch-bg: #551d1d;
+  --badge-patch-text: #daa678;
+  --badge-patch-border: #84202c;
+  --badge-auth-bg: #842c1d;
+  --badge-auth-text: #daa678;
+  --badge-auth-border: #a84728;
+  --badge-obsolete-bg: #751d26;
+  --badge-obsolete-text: #ffb3a8;
+  --badge-obsolete-border: #84202c;
+  --badge-file-bg: rgba(199, 158, 110, 0.15);
+  --badge-file-text: #c79e6e;
+  --badge-file-border: #84202c;
+  --badge-constraint-bg: rgba(199, 158, 110, 0.1);
+  --badge-constraint-text: #c79e6e;
+  --badge-constraint-border: #84202c;
+  --btn-purple-bg: rgba(199, 158, 110, 0.15);
+  --btn-purple-text: #c79e6e;
+  --btn-purple-border: #84202c;
+  --btn-purple-bg-hover: rgba(199, 158, 110, 0.25);
+  --btn-purple-shadow: rgba(199, 158, 110, 0.2);
 }
 
 * {
@@ -366,95 +426,47 @@ body {
 }
 
 .badge.patch {
-  background-color: #e0e7ff;
-  color: #3730a3;
-  border-color: #c7d2fe;
-}
-
-[data-theme="dark"] .badge.patch {
-  background-color: #312e81;
-  color: #c7d2fe;
-  border-color: #4338ca;
-}
-
-[data-theme="easter-egg"] .badge.patch {
-  background-color: #551d1d;
-  color: #daa678;
-  border-color: #84202c;
+  background-color: var(--badge-patch-bg);
+  color: var(--badge-patch-text);
+  border-color: var(--badge-patch-border);
 }
 
 .badge.auth-badge {
-  background-color: #fef3c7;
-  color: #92400e;
-  border-color: #fde68a;
+  background-color: var(--badge-auth-bg);
+  color: var(--badge-auth-text);
+  border-color: var(--badge-auth-border);
   display: inline-flex;
   align-items: center;
   margin-left: 8px;
-}
-
-[data-theme="dark"] .badge.auth-badge {
-  background-color: #78350f;
-  color: #fde68a;
-  border-color: #b45309;
 }
 
 .badge.obsolete-badge {
-  background-color: #fee2e2;
-  color: #991b1b;
-  border-color: #fecaca;
+  background-color: var(--badge-obsolete-bg);
+  color: var(--badge-obsolete-text);
+  border-color: var(--badge-obsolete-border);
   display: inline-flex;
   align-items: center;
   margin-left: 8px;
-}
-
-[data-theme="dark"] .badge.obsolete-badge {
-  background-color: #7f1d1d;
-  color: #fecaca;
-  border-color: #991b1b;
 }
 
 .badge.file-upload-badge {
-  background-color: #ede9fe;
-  color: #8b5cf6;
-  border-color: #c4b5fd;
+  background-color: var(--badge-file-bg);
+  color: var(--badge-file-text);
+  border-color: var(--badge-file-border);
   display: inline-flex;
   align-items: center;
   margin-left: 8px;
 }
 
-[data-theme="dark"] .badge.file-upload-badge {
-  background-color: rgba(139, 92, 246, 0.1);
-  color: #c4b5fd;
-  border-color: #8b5cf6;
-}
-
-[data-theme="easter-egg"] .badge.file-upload-badge {
-  background-color: rgba(199, 158, 110, 0.15);
-  color: #c79e6e;
-  border-color: #84202c;
-}
-
 .badge.constraint-badge {
-  background-color: #e0f2fe;
-  color: #0369a1;
-  border-color: #bae6fd;
+  background-color: var(--badge-constraint-bg);
+  color: var(--badge-constraint-text);
+  border-color: var(--badge-constraint-border);
   display: inline-flex;
   align-items: center;
   margin-left: 4px;
   font-family: monospace;
   font-size: 10px;
-}
-
-[data-theme="dark"] .badge.constraint-badge {
-  background-color: rgba(3, 105, 161, 0.15);
-  color: #7dd3fc;
-  border-color: #0369a1;
-}
-
-[data-theme="easter-egg"] .badge.constraint-badge {
-  background-color: rgba(199, 158, 110, 0.1);
-  color: #c79e6e;
-  border-color: #84202c;
 }
 
 /* Main Content Styles */
@@ -528,26 +540,15 @@ body {
 }
 
 .btn-purple {
-  background: #ede9fe;
-  color: #8b5cf6;
-  border: 1px solid #c4b5fd;
+  background: var(--btn-purple-bg);
+  color: var(--btn-purple-text);
+  border: 1px solid var(--btn-purple-border);
   font-weight: 500;
 }
 
-[data-theme="dark"] .btn-purple {
-  background: rgba(139, 92, 246, 0.1);
-  color: #c4b5fd;
-  border: 1px solid #8b5cf6;
-}
-
 .btn-purple:hover {
-  background: #ddd6fe;
-  box-shadow: 0 2px 8px rgba(139, 92, 246, 0.2);
-}
-
-[data-theme="dark"] .btn-purple:hover {
-  background: rgba(139, 92, 246, 0.2);
-  box-shadow: 0 2px 8px rgba(139, 92, 246, 0.3);
+  background: var(--btn-purple-bg-hover);
+  box-shadow: 0 2px 8px var(--btn-purple-shadow);
 }
 
 .btn-purple:disabled {
@@ -1718,8 +1719,7 @@ input[type="file"].file-input {
   background: var(--error-bg);
 }
 
-/* Easter Egg Animation */
-@keyframes easterEggPulse {
+@keyframes secretPulse {
   0% {
     transform: scale(1) rotate(0deg);
   }
