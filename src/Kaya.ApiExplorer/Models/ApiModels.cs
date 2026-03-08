@@ -37,6 +37,17 @@ public class ApiParameter
     public ApiSchema? Schema { get; set; } // For complex types
     public bool IsFile { get; set; } // Indicates if this is a file upload parameter
     public string? HeaderName { get; set; } // The actual header name when using [FromHeader(Name = "...")]
+    public ApiConstraints? Constraints { get; set; }
+}
+
+public class ApiConstraints
+{
+    public int? MinLength { get; set; }
+    public int? MaxLength { get; set; }
+    public double? Minimum { get; set; }
+    public double? Maximum { get; set; }
+    public string? Pattern { get; set; }
+    public string? Format { get; set; } // "email", "url", "phone", "credit-card"
 }
 
 public class ApiRequestBody
@@ -66,6 +77,7 @@ public class ApiProperty
     public bool Required { get; set; }
     public object? DefaultValue { get; set; }
     public ApiSchema? NestedSchema { get; set; } // For nested complex types
+    public ApiConstraints? Constraints { get; set; }
 }
 
 public class ApiDocumentation

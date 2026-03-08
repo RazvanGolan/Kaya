@@ -1,4 +1,5 @@
 using System.Collections;
+using System.ComponentModel.DataAnnotations;
 using System.Reflection;
 using System.Text.Json;
 using Kaya.ApiExplorer.Models;
@@ -189,14 +190,16 @@ public static class ReflectionHelper
         {
             var propertyType = property.PropertyType;
             var underlyingType = Nullable.GetUnderlyingType(propertyType) ?? propertyType;
-            var isRequired = !IsNullableType(propertyType);
+            var isRequired = !IsNullableType(propertyType)
+                || property.GetCustomAttribute<RequiredAttribute>() is not null;
             
             // Add property to schema
             var apiProperty = new ApiProperty
             {
                 Type = GetFriendlyTypeName(underlyingType),
                 Required = isRequired,
-                DefaultValue = property.GetCustomAttribute<System.ComponentModel.DefaultValueAttribute>()?.Value
+                DefaultValue = property.GetCustomAttribute<System.ComponentModel.DefaultValueAttribute>()?.Value,
+                Constraints = GetPropertyConstraints(property)
             };
             
             if (IsComplexType(underlyingType) && !processedTypes.Contains(underlyingType))
@@ -412,6 +415,80 @@ public static class ReflectionHelper
         }
         
         return new { };
+    }
+
+    public static ApiConstraints? GetPropertyConstraints(PropertyInfo property)
+    {
+        var c = new ApiConstraints();
+        var hasAny = false;
+
+        var stringLen = property.GetCustomAttribute<StringLengthAttribute>();
+        if (stringLen is not null)
+        {
+            if (stringLen.MaximumLength > 0) { c.MaxLength = stringLen.MaximumLength; hasAny = true; }
+            if (stringLen.MinimumLength > 0) { c.MinLength = stringLen.MinimumLength; hasAny = true; }
+        }
+
+        var minLen = property.GetCustomAttribute<MinLengthAttribute>();
+        if (minLen is not null) { c.MinLength ??= minLen.Length; hasAny = true; }
+
+        var maxLen = property.GetCustomAttribute<MaxLengthAttribute>();
+        if (maxLen is not null) { c.MaxLength ??= maxLen.Length; hasAny = true; }
+
+        var range = property.GetCustomAttribute<RangeAttribute>();
+        if (range is not null)
+        {
+            c.Minimum = range.Minimum is double d1 ? d1 : Convert.ToDouble(range.Minimum);
+            c.Maximum = range.Maximum is double d2 ? d2 : Convert.ToDouble(range.Maximum);
+            hasAny = true;
+        }
+
+        var regex = property.GetCustomAttribute<RegularExpressionAttribute>();
+        if (regex is not null) { c.Pattern = regex.Pattern; hasAny = true; }
+
+        if (property.GetCustomAttribute<EmailAddressAttribute>() is not null)      { c.Format = "email"; hasAny = true; }
+        else if (property.GetCustomAttribute<UrlAttribute>() is not null)          { c.Format = "url"; hasAny = true; }
+        else if (property.GetCustomAttribute<PhoneAttribute>() is not null)        { c.Format = "phone"; hasAny = true; }
+        else if (property.GetCustomAttribute<CreditCardAttribute>() is not null)   { c.Format = "credit-card"; hasAny = true; }
+
+        return hasAny ? c : null;
+    }
+
+    public static ApiConstraints? GetParameterConstraints(ParameterInfo parameter)
+    {
+        var c = new ApiConstraints();
+        var hasAny = false;
+
+        var stringLen = parameter.GetCustomAttribute<StringLengthAttribute>();
+        if (stringLen is not null)
+        {
+            if (stringLen.MaximumLength > 0) { c.MaxLength = stringLen.MaximumLength; hasAny = true; }
+            if (stringLen.MinimumLength > 0) { c.MinLength = stringLen.MinimumLength; hasAny = true; }
+        }
+
+        var minLen = parameter.GetCustomAttribute<MinLengthAttribute>();
+        if (minLen is not null) { c.MinLength ??= minLen.Length; hasAny = true; }
+
+        var maxLen = parameter.GetCustomAttribute<MaxLengthAttribute>();
+        if (maxLen is not null) { c.MaxLength ??= maxLen.Length; hasAny = true; }
+
+        var range = parameter.GetCustomAttribute<RangeAttribute>();
+        if (range is not null)
+        {
+            c.Minimum = range.Minimum is double d1 ? d1 : Convert.ToDouble(range.Minimum);
+            c.Maximum = range.Maximum is double d2 ? d2 : Convert.ToDouble(range.Maximum);
+            hasAny = true;
+        }
+
+        var regex = parameter.GetCustomAttribute<RegularExpressionAttribute>();
+        if (regex is not null) { c.Pattern = regex.Pattern; hasAny = true; }
+
+        if (parameter.GetCustomAttribute<EmailAddressAttribute>() is not null)    { c.Format = "email"; hasAny = true; }
+        else if (parameter.GetCustomAttribute<UrlAttribute>() is not null)        { c.Format = "url"; hasAny = true; }
+        else if (parameter.GetCustomAttribute<PhoneAttribute>() is not null)      { c.Format = "phone"; hasAny = true; }
+        else if (parameter.GetCustomAttribute<CreditCardAttribute>() is not null) { c.Format = "credit-card"; hasAny = true; }
+
+        return hasAny ? c : null;
     }
 
     public static string CombineRoutes(string baseRoute, string additionalRoute)

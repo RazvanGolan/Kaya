@@ -537,7 +537,8 @@ public class EndpointScanner : IEndpointScanner
                 DefaultValue = param.HasDefaultValue ? param.DefaultValue : null,
                 Source = parameterSource,
                 IsFile = isFileParameter,
-                HeaderName = headerName
+                HeaderName = headerName,
+                Constraints = ReflectionHelper.GetParameterConstraints(param)
             };
 
             if (!isFileParameter && ReflectionHelper.IsComplexType(param.ParameterType))

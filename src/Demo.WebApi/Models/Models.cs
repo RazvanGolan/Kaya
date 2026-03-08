@@ -1,3 +1,5 @@
+using System.ComponentModel.DataAnnotations;
+
 namespace Demo.WebApi.Models;
 
 // Enums
@@ -93,11 +95,20 @@ public class UserPreferences
 
 public class CreateUserRequest
 {
+    [Required]
+    [StringLength(100, MinimumLength = 2)]
     public string Name { get; set; } = string.Empty;
+
+    [Required]
+    [EmailAddress]
+    [StringLength(200)]
     public string Email { get; set; } = string.Empty;
+
     public UserRole Role { get; set; } = UserRole.User;
     public ContactInfo? ContactInfo { get; set; }
     public UserPreferences? Preferences { get; set; }
+
+    [MaxLength(20)]
     public List<string> Tags { get; set; } = [];
 }
 
@@ -178,12 +189,23 @@ public class ProductMetrics
 
 public class CreateProductRequest
 {
+    [Required]
+    [StringLength(200, MinimumLength = 1)]
     public string Name { get; set; } = string.Empty;
+
+    [StringLength(2000)]
     public string Description { get; set; } = string.Empty;
+
+    [Range(0.01, 999999.99)]
     public decimal Price { get; set; }
+
+    [Range(0, int.MaxValue)]
     public int StockQuantity { get; set; }
+
     public ProductCategory Category { get; set; }
     public ProductDetails? Details { get; set; }
+
+    [MaxLength(10)]
     public List<ProductImage> Images { get; set; } = [];
 }
 
@@ -251,17 +273,30 @@ public class OrderNote
 
 public class CreateOrderRequest
 {
+    [Required]
+    [Range(1, int.MaxValue)]
     public int UserId { get; set; }
+
+    [Required]
+    [MinLength(1)]
     public List<OrderItemRequest> Items { get; set; } = [];
+
     public OrderShipping Shipping { get; set; } = new();
     public OrderBilling Billing { get; set; } = new();
+
+    [StringLength(1000)]
     public string? Notes { get; set; }
 }
 
 public class OrderItemRequest
 {
+    [Required]
+    [Range(1, int.MaxValue)]
     public int ProductId { get; set; }
+
+    [Range(1, 10000)]
     public int Quantity { get; set; }
+
     public Dictionary<string, string> ProductOptions { get; set; } = new();
 }
 

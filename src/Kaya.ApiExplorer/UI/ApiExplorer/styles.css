@@ -434,6 +434,29 @@ body {
   border-color: #84202c;
 }
 
+.badge.constraint-badge {
+  background-color: #e0f2fe;
+  color: #0369a1;
+  border-color: #bae6fd;
+  display: inline-flex;
+  align-items: center;
+  margin-left: 4px;
+  font-family: monospace;
+  font-size: 10px;
+}
+
+[data-theme="dark"] .badge.constraint-badge {
+  background-color: rgba(3, 105, 161, 0.15);
+  color: #7dd3fc;
+  border-color: #0369a1;
+}
+
+[data-theme="easter-egg"] .badge.constraint-badge {
+  background-color: rgba(199, 158, 110, 0.1);
+  color: #c79e6e;
+  border-color: #84202c;
+}
+
 /* Main Content Styles */
 .main-content {
   flex: 1;

@@ -1030,6 +1030,43 @@ function renderEndpointTabs(endpoint, endpointId, index) {
     `
 }
 
+function renderSchemaProperties(properties, required) {
+  return Object.entries(properties).map(([propName, propInfo]) => {
+    const isRequired = required && required.includes(propName);
+    const propConstraintBadges = renderConstraintBadges(propInfo.constraints);
+
+    let nestedHtml = '';
+    if (propInfo.nestedSchema && propInfo.nestedSchema.properties && Object.keys(propInfo.nestedSchema.properties).length > 0) {
+      nestedHtml = `<div style="margin-top: 4px; padding-left: 8px; border-left: 2px solid var(--border-primary);">
+        ${renderSchemaProperties(propInfo.nestedSchema.properties, propInfo.nestedSchema.required)}
+      </div>`;
+    }
+
+    return `
+      <div style="padding-left: 8px; padding: 3px 0 3px 8px;">
+        <div class="parameter-header" style="border-bottom: none;">
+          <code class="parameter-name">${propName}</code>
+          <span class="badge">${propInfo.type}</span>
+          ${isRequired ? '<span class="badge delete">Required</span>' : ''}
+          ${propConstraintBadges}
+        </div>
+        ${nestedHtml}
+      </div>`;
+  }).join('');
+}
+
+function renderConstraintBadges(constraints) {
+  if (!constraints) return '';
+  const badges = [];
+  if (constraints.minLength != null)  badges.push(`<span class="badge constraint-badge">min: ${constraints.minLength}</span>`);
+  if (constraints.maxLength != null)  badges.push(`<span class="badge constraint-badge">max: ${constraints.maxLength}</span>`);
+  if (constraints.minimum != null)    badges.push(`<span class="badge constraint-badge">&ge; ${constraints.minimum}</span>`);
+  if (constraints.maximum != null)    badges.push(`<span class="badge constraint-badge">&le; ${constraints.maximum}</span>`);
+  if (constraints.format)             badges.push(`<span class="badge constraint-badge">${constraints.format}</span>`);
+  if (constraints.pattern)            badges.push(`<span class="badge constraint-badge" title="${constraints.pattern}">pattern</span>`);
+  return badges.join('');
+}
+
 function renderParameters(endpoint) {
   if (!endpoint.parameters || endpoint.parameters.length === 0) {
     return '<p class="text-muted">No parameters required</p>'
@@ -1041,6 +1078,15 @@ function renderParameters(endpoint) {
         const isFileParam = param.source === "File" || param.isFile;
         const requiredBadge = param.required ? '<span class="badge delete">Required</span>' : "";
         const fileIcon = isFileParam ? '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="display: inline-block; vertical-align: middle; margin-right: 4px;"><path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"></path><polyline points="13 2 13 9 20 9"></polyline></svg>' : '';
+        const constraintBadges = renderConstraintBadges(param.constraints);
+
+        // For complex body / form params, recursively expand schema properties with constraints
+        let schemaHtml = '';
+        if (param.schema && param.schema.properties && Object.keys(param.schema.properties).length > 0) {
+          schemaHtml = `<div style="margin-top: 6px; padding-left: 8px; border-left: 2px solid var(--border-primary);">
+            ${renderSchemaProperties(param.schema.properties, param.schema.required)}
+          </div>`;
+        }
         
         return `
         <div class="parameter-item">
@@ -1049,8 +1095,10 @@ function renderParameters(endpoint) {
                 <span class="badge">${param.type}</span>
                 ${requiredBadge}
                 ${isFileParam ? '<span class="badge file-upload-badge">File Upload</span>' : ''}
+                ${constraintBadges}
             </div>
             <p class="parameter-description">${param.description || (isFileParam ? 'File to upload' : '')}</p>
+            ${schemaHtml}
         </div>
     `;
       }
@@ -1239,6 +1287,7 @@ function renderTryItOutParameters(endpoint, endpointIdentifier) {
               const inputType = getInputTypeForProperty(propInfo.type);
               const placeholder = `Enter ${propName}`;
               const defaultVal = propInfo.defaultValue !== null && propInfo.defaultValue !== undefined ? propInfo.defaultValue : '';
+              const propConstraints = renderConstraintBadges(propInfo.constraints);
               
               if (inputType === 'file') {
                 const inputId = `param-${endpointIdentifier}-${param.name}.${propName}`;
@@ -1270,7 +1319,7 @@ function renderTryItOutParameters(endpoint, endpointIdentifier) {
               } else {
                 return `
               <div class="tryout-parameter-row">
-                <label class="tryout-parameter-label ${isRequired ? 'required' : ''}">${propName}:</label>
+                <label class="tryout-parameter-label ${isRequired ? 'required' : ''}">${propName}:${propConstraints}</label>
                 <input type="${inputType}" 
                        id="param-${endpointIdentifier}-${param.name}.${propName}" 
                        placeholder="${placeholder}" 
