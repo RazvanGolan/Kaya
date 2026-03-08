@@ -132,12 +132,12 @@ public static class ReflectionHelper
         {
             var keyType = type.GetGenericArguments()[0];
             var valueType = type.GetGenericArguments()[1];
-            
-            var keyExample = GenerateExampleJson(keyType, schemas, processedTypes);
+
+            var keyExample = keyType == typeof(string) ? "\"key1\"" : GenerateExampleJson(keyType, schemas, processedTypes);
             var valueExample = GenerateExampleJson(valueType, schemas, processedTypes);
-            
+
             var jsonKey = keyExample.StartsWith('"') ? keyExample : $"\"{keyExample.Trim('"')}\"";
-            
+
             return $"{{{jsonKey}: {valueExample}}}";
         }
 
@@ -226,7 +226,6 @@ public static class ReflectionHelper
         schemas[type.Name] = schema;
     }
 
-    // TODO: see if this can be enhanced
     private static string GenerateExampleFromSchema(Type type, Dictionary<string, ApiSchema> schemas, HashSet<Type>? processedTypes = null)
     {
         processedTypes ??= [];
@@ -242,12 +241,11 @@ public static class ReflectionHelper
 
             if (underlyingType == typeof(string))
             {
-                // TODO: add more realistic examples based on property name like id, email, etc.
-                example[property.Name] = property.Name.ToLower().Contains("email") ? "email@example.com" : "sample text";
+                example[property.Name] = GenerateStringExample(property.Name);
             }
             else if (underlyingType == typeof(int) || underlyingType == typeof(long))
             {
-                example[property.Name] = 123;
+                example[property.Name] = GenerateIntExample(property.Name);
             }
             else if (underlyingType == typeof(bool))
             {
@@ -263,7 +261,7 @@ public static class ReflectionHelper
             }
             else if (underlyingType == typeof(decimal) || underlyingType == typeof(double) || underlyingType == typeof(float))
             {
-                example[property.Name] = 12.34;
+                example[property.Name] = GenerateDecimalExample(property.Name);
             }
             else if (underlyingType == typeof(object))
             {
@@ -283,14 +281,13 @@ public static class ReflectionHelper
                 {
                     var keyType = underlyingType.GetGenericArguments()[0];
                     var valueType = underlyingType.GetGenericArguments()[1];
-                    
-                    var keyExample = GenerateSimpleExample(keyType, processedTypes);
+
+                    var keyString = keyType == typeof(string) ? "key1" : (GenerateSimpleExample(keyType, processedTypes).ToString() ?? "key1");
                     var valueExample = GenerateSimpleExample(valueType, processedTypes);
-                    
+
                     var dictionaryExample = new Dictionary<string, object>();
-                    var keyString = keyExample.ToString() ?? "key";
                     dictionaryExample[keyString] = valueExample;
-                    
+
                     example[property.Name] = dictionaryExample;
                 }
                 else if (IsEnumerableType(underlyingType))
@@ -417,6 +414,214 @@ public static class ReflectionHelper
         }
         
         return new { };
+    }
+
+    private static string GenerateStringExample(string propertyName)
+    {
+        if (propertyName.Contains("email", StringComparison.OrdinalIgnoreCase))
+            return "user@example.com";
+        if (propertyName.Contains("phone", StringComparison.OrdinalIgnoreCase) ||
+            propertyName.Contains("mobile", StringComparison.OrdinalIgnoreCase) ||
+            propertyName.Contains("tel", StringComparison.OrdinalIgnoreCase))
+            return "+1-555-123-4567";
+        if (propertyName.Contains("url", StringComparison.OrdinalIgnoreCase) ||
+            propertyName.Contains("website", StringComparison.OrdinalIgnoreCase) ||
+            propertyName.Contains("link", StringComparison.OrdinalIgnoreCase) ||
+            propertyName.Contains("href", StringComparison.OrdinalIgnoreCase) ||
+            propertyName.Contains("uri", StringComparison.OrdinalIgnoreCase))
+            return "https://example.com";
+        if (string.Equals(propertyName, "firstname", StringComparison.OrdinalIgnoreCase) ||
+            propertyName.EndsWith("firstname", StringComparison.OrdinalIgnoreCase) ||
+            string.Equals(propertyName, "first", StringComparison.OrdinalIgnoreCase))
+            return "Alex";
+        if (string.Equals(propertyName, "lastname", StringComparison.OrdinalIgnoreCase) ||
+            propertyName.EndsWith("lastname", StringComparison.OrdinalIgnoreCase) ||
+            propertyName.Contains("surname", StringComparison.OrdinalIgnoreCase))
+            return "Johnson";
+        if (string.Equals(propertyName, "name", StringComparison.OrdinalIgnoreCase) ||
+            propertyName.Contains("fullname", StringComparison.OrdinalIgnoreCase) ||
+            propertyName.Contains("displayname", StringComparison.OrdinalIgnoreCase))
+            return "Alex Johnson";
+        if (propertyName.Contains("name", StringComparison.OrdinalIgnoreCase))
+            return "Sample Name";
+        if (propertyName.Contains("username", StringComparison.OrdinalIgnoreCase) ||
+            propertyName.Contains("login", StringComparison.OrdinalIgnoreCase) ||
+            propertyName.Contains("handle", StringComparison.OrdinalIgnoreCase))
+            return "alexjohnson";
+        if (propertyName.Contains("password", StringComparison.OrdinalIgnoreCase) ||
+            propertyName.Contains("secret", StringComparison.OrdinalIgnoreCase) ||
+            propertyName.Contains("pwd", StringComparison.OrdinalIgnoreCase))
+            return "P@ssw0rd!";
+        if (propertyName.Contains("token", StringComparison.OrdinalIgnoreCase) ||
+            propertyName.Contains("apikey", StringComparison.OrdinalIgnoreCase) ||
+            propertyName.Contains("accesskey", StringComparison.OrdinalIgnoreCase))
+            return "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9";
+        if (string.Equals(propertyName, "id", StringComparison.OrdinalIgnoreCase) ||
+            propertyName.EndsWith("id", StringComparison.OrdinalIgnoreCase) ||
+            propertyName.EndsWith("guid", StringComparison.OrdinalIgnoreCase))
+            return "3fa85f64-5717-4562-b3fc-2c963f66afa6";
+        if (propertyName.Contains("description", StringComparison.OrdinalIgnoreCase) ||
+            propertyName.Contains("bio", StringComparison.OrdinalIgnoreCase) ||
+            propertyName.Contains("summary", StringComparison.OrdinalIgnoreCase) ||
+            propertyName.Contains("about", StringComparison.OrdinalIgnoreCase))
+            return "A brief description of the item.";
+        if (propertyName.Contains("content", StringComparison.OrdinalIgnoreCase) ||
+            propertyName.Contains("body", StringComparison.OrdinalIgnoreCase) ||
+            propertyName.Contains("message", StringComparison.OrdinalIgnoreCase) ||
+            propertyName.Contains("note", StringComparison.OrdinalIgnoreCase) ||
+            propertyName.Contains("comment", StringComparison.OrdinalIgnoreCase) ||
+            propertyName.Contains("text", StringComparison.OrdinalIgnoreCase))
+            return "Sample content text.";
+        if (propertyName.Contains("title", StringComparison.OrdinalIgnoreCase) ||
+            propertyName.Contains("subject", StringComparison.OrdinalIgnoreCase) ||
+            propertyName.Contains("heading", StringComparison.OrdinalIgnoreCase))
+            return "Sample Title";
+        if (propertyName.Contains("street", StringComparison.OrdinalIgnoreCase) ||
+            propertyName.Contains("address", StringComparison.OrdinalIgnoreCase))
+            return "123 Main Street";
+        if (propertyName.Contains("city", StringComparison.OrdinalIgnoreCase))
+            return "New York";
+        if (propertyName.Contains("state", StringComparison.OrdinalIgnoreCase) ||
+            propertyName.Contains("province", StringComparison.OrdinalIgnoreCase) ||
+            propertyName.Contains("region", StringComparison.OrdinalIgnoreCase))
+            return "NY";
+        if (propertyName.Contains("country", StringComparison.OrdinalIgnoreCase))
+            return "United States";
+        if (propertyName.Contains("zip", StringComparison.OrdinalIgnoreCase) ||
+            propertyName.Contains("postal", StringComparison.OrdinalIgnoreCase) ||
+            propertyName.Contains("postcode", StringComparison.OrdinalIgnoreCase))
+            return "10001";
+        if (propertyName.Contains("color", StringComparison.OrdinalIgnoreCase) ||
+            propertyName.Contains("colour", StringComparison.OrdinalIgnoreCase))
+            return "#FF5733";
+        if (propertyName.Contains("currency", StringComparison.OrdinalIgnoreCase))
+            return "USD";
+        if (propertyName.Contains("code", StringComparison.OrdinalIgnoreCase))
+            return "ABC-123";
+        if (propertyName.Contains("tag", StringComparison.OrdinalIgnoreCase) ||
+            propertyName.Contains("label", StringComparison.OrdinalIgnoreCase) ||
+            propertyName.Contains("category", StringComparison.OrdinalIgnoreCase))
+            return "example-tag";
+        if (propertyName.Contains("path", StringComparison.OrdinalIgnoreCase) ||
+            propertyName.Contains("directory", StringComparison.OrdinalIgnoreCase) ||
+            propertyName.Contains("folder", StringComparison.OrdinalIgnoreCase))
+            return "/path/to/resource";
+        if (propertyName.Contains("filename", StringComparison.OrdinalIgnoreCase) ||
+            string.Equals(propertyName, "file", StringComparison.OrdinalIgnoreCase))
+            return "document.pdf";
+        if (propertyName.Contains("host", StringComparison.OrdinalIgnoreCase) ||
+            propertyName.Contains("server", StringComparison.OrdinalIgnoreCase) ||
+            propertyName.Contains("domain", StringComparison.OrdinalIgnoreCase))
+            return "example.com";
+        if (propertyName.Contains("ipaddress", StringComparison.OrdinalIgnoreCase) ||
+            string.Equals(propertyName, "ip", StringComparison.OrdinalIgnoreCase))
+            return "192.168.1.1";
+        if (propertyName.Contains("version", StringComparison.OrdinalIgnoreCase))
+            return "1.0.0";
+        if (propertyName.Contains("locale", StringComparison.OrdinalIgnoreCase) ||
+            propertyName.Contains("language", StringComparison.OrdinalIgnoreCase) ||
+            string.Equals(propertyName, "lang", StringComparison.OrdinalIgnoreCase))
+            return "en-US";
+        if (propertyName.Contains("timezone", StringComparison.OrdinalIgnoreCase) ||
+            propertyName.Contains("zone", StringComparison.OrdinalIgnoreCase))
+            return "UTC";
+        if (propertyName.Contains("mimetype", StringComparison.OrdinalIgnoreCase) ||
+            propertyName.Contains("contenttype", StringComparison.OrdinalIgnoreCase) ||
+            string.Equals(propertyName, "format", StringComparison.OrdinalIgnoreCase))
+            return "application/json";
+
+        return "sample text";
+    }
+
+    private static int GenerateIntExample(string propertyName)
+    {
+        if (string.Equals(propertyName, "age", StringComparison.OrdinalIgnoreCase))
+            return 30;
+        if (propertyName.Contains("year", StringComparison.OrdinalIgnoreCase))
+            return DateTime.UtcNow.Year;
+        if (propertyName.Contains("month", StringComparison.OrdinalIgnoreCase))
+            return 6;
+        if (propertyName.Contains("day", StringComparison.OrdinalIgnoreCase))
+            return 15;
+        if (propertyName.Contains("count", StringComparison.OrdinalIgnoreCase) ||
+            propertyName.Contains("quantity", StringComparison.OrdinalIgnoreCase) ||
+            propertyName.Contains("qty", StringComparison.OrdinalIgnoreCase))
+            return 10;
+        if (string.Equals(propertyName, "max", StringComparison.OrdinalIgnoreCase) ||
+            propertyName.Contains("maximum", StringComparison.OrdinalIgnoreCase) ||
+            propertyName.Contains("limit", StringComparison.OrdinalIgnoreCase))
+            return 100;
+        if (string.Equals(propertyName, "min", StringComparison.OrdinalIgnoreCase) ||
+            propertyName.Contains("minimum", StringComparison.OrdinalIgnoreCase))
+            return 0;
+        if (propertyName.Contains("size", StringComparison.OrdinalIgnoreCase) ||
+            propertyName.Contains("length", StringComparison.OrdinalIgnoreCase) ||
+            propertyName.Contains("width", StringComparison.OrdinalIgnoreCase) ||
+            propertyName.Contains("height", StringComparison.OrdinalIgnoreCase))
+            return 50;
+        if (propertyName.Contains("port", StringComparison.OrdinalIgnoreCase))
+            return 8080;
+        if (propertyName.Contains("timeout", StringComparison.OrdinalIgnoreCase))
+            return 30;
+        if (propertyName.Contains("retry", StringComparison.OrdinalIgnoreCase) ||
+            propertyName.Contains("attempt", StringComparison.OrdinalIgnoreCase))
+            return 3;
+        if (string.Equals(propertyName, "page", StringComparison.OrdinalIgnoreCase) ||
+            propertyName.Contains("pagenumber", StringComparison.OrdinalIgnoreCase))
+            return 1;
+        if (propertyName.Contains("skip", StringComparison.OrdinalIgnoreCase) ||
+            propertyName.Contains("offset", StringComparison.OrdinalIgnoreCase))
+            return 0;
+        if (propertyName.Contains("take", StringComparison.OrdinalIgnoreCase) ||
+            propertyName.Contains("pagesize", StringComparison.OrdinalIgnoreCase))
+            return 20;
+        if (propertyName.Contains("order", StringComparison.OrdinalIgnoreCase) ||
+            propertyName.Contains("index", StringComparison.OrdinalIgnoreCase) ||
+            propertyName.Contains("rank", StringComparison.OrdinalIgnoreCase) ||
+            propertyName.Contains("position", StringComparison.OrdinalIgnoreCase) ||
+            propertyName.Contains("priority", StringComparison.OrdinalIgnoreCase))
+            return 1;
+
+        return 123;
+    }
+
+    private static double GenerateDecimalExample(string propertyName)
+    {
+        if (propertyName.Contains("price", StringComparison.OrdinalIgnoreCase) ||
+            propertyName.Contains("cost", StringComparison.OrdinalIgnoreCase) ||
+            propertyName.Contains("fee", StringComparison.OrdinalIgnoreCase) ||
+            propertyName.Contains("amount", StringComparison.OrdinalIgnoreCase) ||
+            propertyName.Contains("total", StringComparison.OrdinalIgnoreCase) ||
+            propertyName.Contains("balance", StringComparison.OrdinalIgnoreCase))
+            return 99.99;
+        if (propertyName.Contains("rate", StringComparison.OrdinalIgnoreCase) ||
+            propertyName.Contains("percent", StringComparison.OrdinalIgnoreCase) ||
+            propertyName.Contains("ratio", StringComparison.OrdinalIgnoreCase) ||
+            propertyName.Contains("discount", StringComparison.OrdinalIgnoreCase) ||
+            propertyName.Contains("tax", StringComparison.OrdinalIgnoreCase))
+            return 0.15;
+        if (propertyName.Contains("lat", StringComparison.OrdinalIgnoreCase) ||
+            propertyName.Contains("latitude", StringComparison.OrdinalIgnoreCase))
+            return 40.7128;
+        if (propertyName.Contains("lon", StringComparison.OrdinalIgnoreCase) ||
+            propertyName.Contains("lng", StringComparison.OrdinalIgnoreCase) ||
+            propertyName.Contains("longitude", StringComparison.OrdinalIgnoreCase))
+            return -74.0060;
+        if (propertyName.Contains("weight", StringComparison.OrdinalIgnoreCase))
+            return 72.5;
+        if (propertyName.Contains("height", StringComparison.OrdinalIgnoreCase))
+            return 1.75;
+        if (propertyName.Contains("width", StringComparison.OrdinalIgnoreCase) ||
+            propertyName.Contains("depth", StringComparison.OrdinalIgnoreCase))
+            return 10.5;
+        if (propertyName.Contains("score", StringComparison.OrdinalIgnoreCase) ||
+            propertyName.Contains("rating", StringComparison.OrdinalIgnoreCase))
+            return 4.5;
+        if (propertyName.Contains("temp", StringComparison.OrdinalIgnoreCase) ||
+            propertyName.Contains("temperature", StringComparison.OrdinalIgnoreCase))
+            return 22.5;
+
+        return 12.34;
     }
 
     public static ApiConstraints? GetPropertyConstraints(PropertyInfo property)

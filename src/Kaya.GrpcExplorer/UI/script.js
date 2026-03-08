@@ -20,6 +20,44 @@ function autoResizeTextarea(el) {
 }
 
 // Setup auto-resize for textareas in a container
+function clearBodyTextarea(textareaId) {
+    const el = document.getElementById(textareaId);
+    if (el) {
+        el.value = '';
+        autoResizeTextarea(el);
+    }
+}
+
+function clearBodyValues(textareaId) {
+    const el = document.getElementById(textareaId);
+    if (!el) return;
+    try {
+        const parsed = JSON.parse(el.value);
+        el.value = serializeEmptied(parsed, 0);
+        autoResizeTextarea(el);
+    } catch {
+        // not valid JSON, do nothing
+    }
+}
+
+function serializeEmptied(value, indent) {
+    const pad = '  '.repeat(indent);
+    const innerPad = '  '.repeat(indent + 1);
+    if (Array.isArray(value)) {
+        return `[\n${innerPad}\n${pad}]`;
+    }
+    if (typeof value === 'object' && value !== null) {
+        const entries = Object.entries(value);
+        if (entries.length === 0) return '{}';
+        const lines = entries.map(([k, v]) => {
+            const val = (typeof v === 'object' && v !== null) ? serializeEmptied(v, indent + 1) : '';
+            return `${innerPad}"${k}": ${val}`;
+        });
+        return `{\n${lines.join(',\n')}\n${pad}}`;
+    }
+    return '';
+}
+
 function setupTextareaAutoResize(container) {
   const textareas = container ? container.querySelectorAll('.body-textarea, .auth-textarea, textarea') : document.querySelectorAll('.body-textarea, .auth-textarea, textarea');
   textareas.forEach(textarea => {
@@ -350,7 +388,27 @@ function renderTryItOut(method, index) {
 
     return `
         <div class="request-builder">
-            <h4 style="margin-bottom: 12px;">Request Body</h4>
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+                <h4>Request Body</h4>
+                <div style="display: flex; gap: 6px;">
+                    <button type="button" class="btn btn-outline btn-sm" onclick="clearBodyTextarea('request-${methodIdentifier}')" title="Clear body">
+                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <polyline points="3,6 5,6 21,6"></polyline>
+                            <path d="M19,6l-1,14a2,2,0,0,1-2,2H8a2,2,0,0,1-2-2L5,6"></path>
+                            <path d="M10,11v6"></path><path d="M14,11v6"></path>
+                            <path d="M9,6V4a1,1,0,0,1,1-1h4a1,1,0,0,1,1,1v2"></path>
+                        </svg>
+                        Clear
+                    </button>
+                    <button type="button" class="btn btn-outline btn-sm" onclick="clearBodyValues('request-${methodIdentifier}')" title="Clear example values">
+                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="m7 21-4.3-4.3c-1-1-1-2.5 0-3.4l9.6-9.6c1-1 2.5-1 3.4 0l5.6 5.6c1 1 1 2.5 0 3.4L13 21H22"></path>
+                            <path d="m5 11 9 9"></path>
+                        </svg>
+                        Clear values
+                    </button>
+                </div>
+            </div>
             <textarea id="request-${methodIdentifier}" 
                       class="body-textarea" 
                       style="width: 100%; height: 200px; font-family: monospace;"
@@ -392,7 +450,27 @@ function renderStreamingTryItOut(method, index, methodIdentifier) {
     const isClientOrBidi = method.methodType === 2 || method.methodType === 3
 
     const initialRequestArea = `
-        <h4 style="margin-bottom: 8px;">${isServerStream ? 'Request Body' : 'Message Body'}</h4>
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+            <h4>${isServerStream ? 'Request Body' : 'Message Body'}</h4>
+            <div style="display: flex; gap: 6px;">
+                <button type="button" class="btn btn-outline btn-sm" onclick="clearBodyTextarea('request-${methodIdentifier}')" title="Clear body">
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <polyline points="3,6 5,6 21,6"></polyline>
+                        <path d="M19,6l-1,14a2,2,0,0,1-2,2H8a2,2,0,0,1-2-2L5,6"></path>
+                        <path d="M10,11v6"></path><path d="M14,11v6"></path>
+                        <path d="M9,6V4a1,1,0,0,1,1-1h4a1,1,0,0,1,1,1v2"></path>
+                    </svg>
+                    Clear
+                </button>
+                <button type="button" class="btn btn-outline btn-sm" onclick="clearBodyValues('request-${methodIdentifier}')" title="Clear example values">
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="m7 21-4.3-4.3c-1-1-1-2.5 0-3.4l9.6-9.6c1-1 2.5-1 3.4 0l5.6 5.6c1 1 1 2.5 0 3.4L13 21H22"></path>
+                        <path d="m5 11 9 9"></path>
+                    </svg>
+                    Clear values
+                </button>
+            </div>
+        </div>
         <textarea id="request-${methodIdentifier}"
                   class="body-textarea"
                   style="width: 100%; font-family: monospace;"

@@ -1406,10 +1406,29 @@ function renderTryItOutRequestBody(endpoint, endpointIdentifier) {
     <div class="tryout-parameter-group">
       <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
         <h4>Request Body <span class="badge">${endpoint.requestBody.type}</span></h4>
-        <select id="bodyEditorMode-${endpointIdentifier}" class="method-select" onchange="switchTryItOutBodyEditorMode('${bodyId}', '${keyValueId}')">
-          <option value="json">JSON Editor</option>
-          <option value="keyvalue">Key-Value Editor</option>
-        </select>
+        <div style="display: flex; gap: 6px; align-items: center;">
+          <button type="button" class="btn btn-outline btn-sm" onclick="clearRequestBody('${bodyId}', '${keyValueId}')" title="Clear body">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <polyline points="3,6 5,6 21,6"></polyline>
+              <path d="M19,6l-1,14a2,2,0,0,1-2,2H8a2,2,0,0,1-2-2L5,6"></path>
+              <path d="M10,11v6"></path>
+              <path d="M14,11v6"></path>
+              <path d="M9,6V4a1,1,0,0,1,1-1h4a1,1,0,0,1,1,1V6"></path>
+            </svg>
+            Clear
+          </button>
+          <button type="button" class="btn btn-outline btn-sm" onclick="clearBodyValues('${bodyId}')" title="Clear example values">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="m7 21-4.3-4.3c-1-1-1-2.5 0-3.4l9.6-9.6c1-1 2.5-1 3.4 0l5.6 5.6c1 1 1 2.5 0 3.4L13 21H22"></path>
+              <path d="m5 11 9 9"></path>
+            </svg>
+            Clear values
+          </button>
+          <select id="bodyEditorMode-${endpointIdentifier}" class="method-select" onchange="switchTryItOutBodyEditorMode('${bodyId}', '${keyValueId}')">
+            <option value="json">JSON Editor</option>
+            <option value="keyvalue">Key-Value Editor</option>
+          </select>
+        </div>
       </div>
       <textarea id="${bodyId}" 
                 placeholder="Enter request body (JSON)" 
@@ -1811,12 +1830,41 @@ function saveToFile(button, type, endpointInfo = null) {
   }, 2000);
 }
 
+function flattenObject(obj, prefix) {
+  const result = {};
+  for (const [key, value] of Object.entries(obj)) {
+    const fullKey = prefix ? `${prefix}.${key}` : key;
+    if (typeof value === 'object' && value !== null && !Array.isArray(value)) {
+      Object.assign(result, flattenObject(value, fullKey));
+    } else {
+      result[fullKey] = value;
+    }
+  }
+  return result;
+}
+
+function unflattenObject(obj) {
+  const result = {};
+  for (const [key, value] of Object.entries(obj)) {
+    const parts = key.split('.');
+    let current = result;
+    for (let i = 0; i < parts.length - 1; i++) {
+      if (typeof current[parts[i]] !== 'object' || current[parts[i]] === null) {
+        current[parts[i]] = {};
+      }
+      current = current[parts[i]];
+    }
+    current[parts[parts.length - 1]] = value;
+  }
+  return result;
+}
+
 function populateKeyValueEditor(keyValueEditorId, data) {
   const config = {
     onChangeHandler: `updateRequestBodyField('${keyValueEditorId}')`,
     removeFunctionName: 'removeRequestBodyField'
   };
-  populateKeyValueContainer(`${keyValueEditorId}-fields`, data, config);
+  populateKeyValueContainer(`${keyValueEditorId}-fields`, flattenObject(data), config);
 }
 
 function addRequestBodyField(keyValueEditorId) {
@@ -1836,7 +1884,7 @@ function removeRequestBodyField(button, keyValueEditorId) {
 }
 
 function getKeyValueData(keyValueEditorId) {
-  return parseKeyValueData(`${keyValueEditorId}-fields`);
+  return unflattenObject(parseKeyValueData(`${keyValueEditorId}-fields`));
 }
 
 function switchBodyEditorMode() {
@@ -1869,6 +1917,63 @@ function switchBodyEditorMode() {
   }
 }
 
+function clearRequestBody(jsonEditorId, keyValueEditorId) {
+  const jsonEditor = document.getElementById(jsonEditorId);
+  const keyValueEditor = document.getElementById(keyValueEditorId);
+  if (jsonEditor) {
+    jsonEditor.value = '';
+    autoResizeTextarea(jsonEditor);
+  }
+  if (keyValueEditor) {
+    const fieldsContainer = document.getElementById(`${keyValueEditorId}-fields`);
+    if (fieldsContainer) fieldsContainer.innerHTML = '';
+  }
+}
+
+function clearBodyValues(jsonEditorId) {
+  const endpointIdentifier = jsonEditorId.replace('request-body-', '');
+  const selectEl = document.getElementById(`bodyEditorMode-${endpointIdentifier}`);
+  const mode = selectEl ? selectEl.value : 'json';
+  const jsonEditor = document.getElementById(jsonEditorId);
+  if (!jsonEditor) return;
+
+  if (mode === 'keyvalue') {
+    const fieldsContainer = document.getElementById(`request-body-kv-${endpointIdentifier}-fields`);
+    if (fieldsContainer) {
+      fieldsContainer.querySelectorAll('div').forEach(row => {
+        const inputs = row.querySelectorAll('input');
+        if (inputs.length >= 2) inputs[1].value = '';
+      });
+    }
+  } else {
+    try {
+      const parsed = JSON.parse(jsonEditor.value);
+      jsonEditor.value = serializeEmptied(parsed, 0);
+      autoResizeTextarea(jsonEditor);
+    } catch {
+      // not valid JSON, do nothing
+    }
+  }
+}
+
+function serializeEmptied(value, indent) {
+  const pad = '  '.repeat(indent);
+  const innerPad = '  '.repeat(indent + 1);
+  if (Array.isArray(value)) {
+    return `[\n${innerPad}\n${pad}]`;
+  }
+  if (typeof value === 'object' && value !== null) {
+    const entries = Object.entries(value);
+    if (entries.length === 0) return '{}';
+    const lines = entries.map(([k, v]) => {
+      const val = (typeof v === 'object' && v !== null) ? serializeEmptied(v, indent + 1) : '';
+      return `${innerPad}"${k}": ${val}`;
+    });
+    return `{\n${lines.join(',\n')}\n${pad}}`;
+  }
+  return '';
+}
+
 function switchTryItOutBodyEditorMode(jsonEditorId, keyValueEditorId) {
   const endpointIdentifier = jsonEditorId.replace('request-body-', '');
   const selectElement = document.getElementById(`bodyEditorMode-${endpointIdentifier}`);
@@ -1889,15 +1994,29 @@ function switchTryItOutBodyEditorMode(jsonEditorId, keyValueEditorId) {
     // Auto-resize the JSON editor
     autoResizeTextarea(jsonEditor);
   } else {
+    let jsonData;
     try {
-      const jsonData = JSON.parse(jsonEditor.value || '{}');
-      populateKeyValueEditor(keyValueEditorId, jsonData);
+      jsonData = JSON.parse(jsonEditor.value || '{}');
     } catch (e) {
-      populateKeyValueEditor(keyValueEditorId, {});
+      jsonData = parseBareFormat(jsonEditor.value);
     }
-    
+    populateKeyValueEditor(keyValueEditorId, jsonData);
+
     jsonEditor.style.display = 'none';
     keyValueEditor.style.display = 'block';
+  }
+}
+
+function parseBareFormat(text) {
+  // Normalize bare values ("key": ,  or  "key": \n) to empty strings
+  const normalized = text
+    .replace(/:\s*,\n/g, ': "",\n')          // "key": ,\n  ->  "key": "",\n
+    .replace(/:\s*\n(\s*[}\]])/g, ': ""\n$1') // "key": \n}  ->  "key": ""\n}
+    .replace(/\[\s*\n\s*\n\s*\]/g, '[]');    // [  \n  ] -> []
+  try {
+    return JSON.parse(normalized);
+  } catch {
+    return {};
   }
 }
 
