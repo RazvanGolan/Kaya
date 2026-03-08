@@ -455,6 +455,11 @@ async function createHubConnection(hub, hubUrl) {
     if (Object.keys(customHeaders).length > 0) {
         connectionOptions.headers = customHeaders;
     }
+
+    // Include cookies for cookie/session auth
+    if (authConfig.type === 'cookie') {
+        connectionOptions.withCredentials = true;
+    }
     
     const connectionBuilder = new signalR.HubConnectionBuilder()
         .withUrl(hubUrl, connectionOptions)

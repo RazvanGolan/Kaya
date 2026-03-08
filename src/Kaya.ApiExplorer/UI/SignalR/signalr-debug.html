@@ -241,6 +241,7 @@
                         <option value="bearer">Bearer Token (JWT)</option>
                         <option value="apikey">API Key</option>
                         <option value="oauth">OAuth 2.0</option>
+                        <option value="cookie">Cookie / Session</option>
                     </select>
                 </div>
 
@@ -339,6 +340,12 @@
                         </svg>
                         Authorize with OAuth
                     </button>
+                </div>
+
+                <!-- Cookie / Session -->
+                <div id="authCookie" class="auth-section hidden">
+                    <p class="help-text" style="margin-bottom: 8px;">The browser will automatically include all cookies for the target origin with hub connections. No manual configuration needed &mdash; ensure you are already logged in.</p>
+                    <p class="help-text" style="margin-bottom: 8px;">This sets <code>withCredentials: true</code> on SignalR connections.</p>
                 </div>
 
                 <div class="modal-actions">

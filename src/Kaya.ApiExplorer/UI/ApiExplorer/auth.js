@@ -17,7 +17,8 @@ let authConfig = {
     tokenUrl: '',
     scopes: '',
     accessToken: ''
-  }
+  },
+  cookie: {}
 }
 
 function switchAuthType() {
@@ -42,6 +43,9 @@ function switchAuthType() {
       break
     case 'oauth':
       document.getElementById('authOAuth')?.classList.remove('hidden')
+      break
+    case 'cookie':
+      document.getElementById('authCookie')?.classList.remove('hidden')
       break
   }
   
@@ -93,6 +97,9 @@ function saveAuthConfiguration(storageKey = 'kayaAuthConfig', modalId = 'authMod
       authConfig.oauth.scopes = document.getElementById('oauthScopes').value.trim()
       authConfig.oauth.accessToken = document.getElementById('oauthAccessToken').value.trim()
       break
+    case 'cookie':
+      // No extra fields — the browser handles cookies automatically
+      break
   }
   
   // TODO: Consider adding a timestamp to delete the config after a certain period for security
@@ -112,7 +119,8 @@ function clearAuthConfiguration(storageKey = 'kayaAuthConfig', modalId = 'authMo
     type: 'none',
     bearer: { token: '' },
     apikey: { name: 'X-API-Key', value: '' },
-    oauth: { clientId: '', authUrl: '', tokenUrl: '', scopes: '', accessToken: '' }
+    oauth: { clientId: '', authUrl: '', tokenUrl: '', scopes: '', accessToken: '' },
+    cookie: {}
   }
   
   document.getElementById('authType').value = 'none'
@@ -204,7 +212,15 @@ function updateAuthStatus() {
         statusDiv.classList.add('hidden')
       }
       break
+    case 'cookie':
+      statusDiv.classList.add('info')
+      statusDiv.innerHTML = '<p>ℹ Browser cookies will be automatically included with all requests (credentials: include)</p>'
+      break
   }
+}
+
+function shouldSendCookies() {
+  return authConfig.type === 'cookie'
 }
 
 function getAuthHeaders() {

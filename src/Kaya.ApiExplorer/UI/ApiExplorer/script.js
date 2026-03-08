@@ -504,6 +504,7 @@ function buildRequestData(config) {
     requestOptions: {
       method: method,
       headers: headers,
+      credentials: shouldSendCookies() ? 'include' : 'same-origin',
       ...(requestBody && { body: requestBody })
     }
   };
