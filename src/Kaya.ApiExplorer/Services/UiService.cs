@@ -1,3 +1,4 @@
+using System.Diagnostics.CodeAnalysis;
 using System.Reflection;
 using System.Text;
 using Kaya.ApiExplorer.Configuration;
@@ -9,6 +10,7 @@ public interface IUIService
     Task<string> GetUIAsync();
 }
 
+[ExcludeFromCodeCoverage(Justification = "Serves embedded HTML/CSS/JS resources — requires a running host to test meaningfully.")]
 public class UIService(KayaApiExplorerOptions options) : IUIService
 {
     public async Task<string> GetUIAsync()

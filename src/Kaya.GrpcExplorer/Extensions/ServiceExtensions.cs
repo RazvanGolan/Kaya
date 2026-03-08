@@ -1,3 +1,4 @@
+using System.Diagnostics.CodeAnalysis;
 using Kaya.GrpcExplorer.Configuration;
 using Kaya.GrpcExplorer.Middleware;
 using Kaya.GrpcExplorer.Services;
@@ -10,6 +11,7 @@ namespace Kaya.GrpcExplorer.Extensions;
 /// <summary>
 /// Extension methods for setting up Kaya gRPC Explorer in an ASP.NET Core application
 /// </summary>
+[ExcludeFromCodeCoverage(Justification = "DI service registration and ASP.NET Core pipeline configuration; requires a full application host to exercise and is verified through integration tests.")]
 public static class ServiceExtensions
 {
     /// <summary>

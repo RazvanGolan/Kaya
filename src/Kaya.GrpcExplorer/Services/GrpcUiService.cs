@@ -1,3 +1,4 @@
+using System.Diagnostics.CodeAnalysis;
 using System.Reflection;
 using System.Text;
 using System.Text.Json;
@@ -13,6 +14,7 @@ public interface IGrpcUiService
 /// <summary>
 /// Service for generating the gRPC Explorer UI
 /// </summary>
+[ExcludeFromCodeCoverage(Justification = "Reads embedded assembly resources (HTML/CSS/JS) that are only present in the deployed package assembly; behavior is verified through integration tests.")]
 public class GrpcUiService(KayaGrpcExplorerOptions options) : IGrpcUiService
 {
     private string? _cachedUi;

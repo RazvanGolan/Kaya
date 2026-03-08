@@ -1,3 +1,4 @@
+using System.Diagnostics.CodeAnalysis;
 using System.Reflection;
 using System.Text;
 using Kaya.ApiExplorer.Configuration;
@@ -9,6 +10,7 @@ public interface ISignalRUIService
     Task<string> GetUIAsync();
 }
 
+[ExcludeFromCodeCoverage(Justification = "Serves embedded HTML/CSS/JS resources — requires a running host to test meaningfully.")]
 public class SignalRUIService(KayaApiExplorerOptions options) : ISignalRUIService
 {
     public async Task<string> GetUIAsync()

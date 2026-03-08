@@ -155,4 +155,104 @@ public class XmlDocumentationHelperTests
 
         Assert.Null(desc);
     }
+
+    // -------------------------------------------------------------------------
+    // GetPropertySummary
+    // -------------------------------------------------------------------------
+
+    /// <summary>A documented property for testing.</summary>
+    public string DocumentedProperty { get; set; } = string.Empty;
+
+    [Fact]
+    public void GetPropertySummary_ReturnsDocumentation_WhenXmlExists()
+    {
+        var property = typeof(XmlDocumentationHelperTests).GetProperty(nameof(DocumentedProperty))!;
+
+        var summary = XmlDocumentationHelper.GetPropertySummary(property);
+
+        Assert.NotNull(summary);
+        Assert.Contains("documented property", summary, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void GetPropertySummary_ReturnsNull_WhenNoDocumentation()
+    {
+        // System assemblies have no XML docs loaded by our helper
+        var systemProperty = typeof(Exception).GetProperty(nameof(Exception.Message))!;
+        Assert.Null(XmlDocumentationHelper.GetPropertySummary(systemProperty));
+    }
+
+    // -------------------------------------------------------------------------
+    // Null / missing-doc edge cases
+    // -------------------------------------------------------------------------
+
+    /// <summary>Method without a returns tag.</summary>
+    public void MethodWithNoReturnsTag() { }
+
+    [Fact]
+    public void GetReturnsDescription_ReturnsNull_WhenMethodHasNoReturnsTag()
+    {
+        var method = typeof(XmlDocumentationHelperTests).GetMethod(nameof(MethodWithNoReturnsTag))!;
+
+        var result = XmlDocumentationHelper.GetReturnsDescription(method);
+
+        Assert.Null(result);
+    }
+
+    public void MethodWithNoXmlDoc(int x) { }
+
+    [Fact]
+    public void GetParameterDescription_ReturnsNull_WhenMethodHasNoXmlDoc()
+    {
+        var method = typeof(XmlDocumentationHelperTests).GetMethod(nameof(MethodWithNoXmlDoc))!;
+
+        var result = XmlDocumentationHelper.GetParameterDescription(method, "x");
+
+        Assert.Null(result);
+    }
+
+    /// <summary>Method with only a summary, no param tags.</summary>
+    public void MethodWithSummaryButNoParams(int value) { }
+
+    [Fact]
+    public void GetParameterDescription_ReturnsNull_WhenParamNotDocumented()
+    {
+        var method = typeof(XmlDocumentationHelperTests).GetMethod(nameof(MethodWithSummaryButNoParams))!;
+
+        var result = XmlDocumentationHelper.GetParameterDescription(method, "value");
+
+        Assert.Null(result);
+    }
+
+    // -------------------------------------------------------------------------
+    // Generic / array parameter member-name resolution
+    // -------------------------------------------------------------------------
+
+    /// <summary>
+    /// Method with a generic parameter for XML member-name resolution.
+    /// </summary>
+    /// <param name="items">A list of items.</param>
+    public void MethodWithGenericParam(List<string> items) { }
+
+    [Fact]
+    public void GetMethodSummary_ReturnsDocumentation_ForMethodWithGenericParam()
+    {
+        var method = typeof(XmlDocumentationHelperTests).GetMethod(nameof(MethodWithGenericParam))!;
+
+        var summary = XmlDocumentationHelper.GetMethodSummary(method);
+
+        Assert.NotNull(summary);
+        Assert.Contains("generic parameter", summary, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void GetParameterDescription_ReturnsDocumentation_ForGenericParam()
+    {
+        var method = typeof(XmlDocumentationHelperTests).GetMethod(nameof(MethodWithGenericParam))!;
+
+        var desc = XmlDocumentationHelper.GetParameterDescription(method, "items");
+
+        Assert.NotNull(desc);
+        Assert.Contains("list", desc, StringComparison.OrdinalIgnoreCase);
+    }
 }

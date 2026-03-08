@@ -6,7 +6,7 @@
     <Nullable>enable</Nullable>
     <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
     <PackageId>Kaya.ApiExplorer</PackageId>
-    <PackageVersion>2.1.0</PackageVersion>
+    <PackageVersion>2.2.0</PackageVersion>
     <Authors>RazvanGolan</Authors>
     <Company>RazvanGolan</Company>
     <Product>Kaya API Explorer</Product>
@@ -18,7 +18,7 @@
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
     <PackageReadmeFile>README.md</PackageReadmeFile>
     <PackageIcon>icon.png</PackageIcon>
-    <PackageReleaseNotes>Version 2.1.0: Search filter no longer resets when selecting an endpoint. Multiple endpoints can now be expanded simultaneously with their responses and input data preserved when navigating between them. Added support for complex object types in multipart form data. Various UI improvements including better SVG icon styling and layout fixes.</PackageReleaseNotes>
+    <PackageReleaseNotes>Version 2.2.0: Added Data Annotations support on models, Minimal APIs support, cookie authentication, and multiple response codes via [ProducesResponseType]. Improvements include a nested parameter tree view, a clear examples button, improved type example generation, and a fully valid OpenAPI 3.0 export format.</PackageReleaseNotes>
   </PropertyGroup>  
   <ItemGroup>
     <FrameworkReference Include="Microsoft.AspNetCore.App" />

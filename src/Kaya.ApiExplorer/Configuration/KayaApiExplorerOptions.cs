@@ -1,3 +1,5 @@
+using System.Diagnostics.CodeAnalysis;
+
 namespace Kaya.ApiExplorer.Configuration;
 
 public class KayaApiExplorerOptions
@@ -13,6 +15,7 @@ public class MiddlewareOptions
     public string DefaultTheme { get; set; } = "light";
 }
 
+[ExcludeFromCodeCoverage(Justification = "Plain configuration DTO — no logic to test.")]
 public class SignalRDebugOptions
 {
     public bool Enabled { get; set; }
@@ -49,6 +52,7 @@ public class DocumentationOptions
     public List<ServerOptions> Servers { get; set; } = [];
 }
 
+[ExcludeFromCodeCoverage(Justification = "Plain configuration DTO — no logic to test.")]
 public class ContactOptions
 {
     /// <summary>Name of the contact person or organisation.</summary>
@@ -61,6 +65,7 @@ public class ContactOptions
     public string? Url { get; set; }
 }
 
+[ExcludeFromCodeCoverage(Justification = "Plain configuration DTO — no logic to test.")]
 public class LicenseOptions
 {
     /// <summary>Name of the license (e.g. "MIT", "Apache 2.0").</summary>
@@ -70,6 +75,7 @@ public class LicenseOptions
     public string? Url { get; set; }
 }
 
+[ExcludeFromCodeCoverage(Justification = "Plain configuration DTO — no logic to test.")]
 public class ServerOptions
 {
     /// <summary>Base URL of the server (e.g. "https://api.example.com/v1").</summary>

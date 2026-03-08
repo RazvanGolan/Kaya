@@ -1,3 +1,4 @@
+using System.Diagnostics.CodeAnalysis;
 using Kaya.ApiExplorer.Configuration;
 using Kaya.ApiExplorer.Middleware;
 using Kaya.ApiExplorer.Services;
@@ -6,6 +7,7 @@ using Microsoft.Extensions.DependencyInjection;
 
 namespace Kaya.ApiExplorer.Extensions;
 
+[ExcludeFromCodeCoverage(Justification = "DI registration glue code — behaviour is verified indirectly through integration tests.")]
 public static class ServiceCollectionExtensions
 {
     /// <summary>
@@ -52,6 +54,7 @@ public static class ServiceCollectionExtensions
     }
 }
 
+[ExcludeFromCodeCoverage(Justification = "Middleware pipeline registration — requires a full host builder; covered by integration tests.")]
 public static class ApplicationBuilderExtensions
 {
     public static IApplicationBuilder UseKayaApiExplorer(this IApplicationBuilder app)

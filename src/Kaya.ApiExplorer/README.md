@@ -4,13 +4,15 @@ A lightweight, Swagger-like API documentation tool for .NET applications that au
 
 ## Features
 
-- **Automatic Discovery** - Scans controllers and endpoints using reflection
+- **Automatic Discovery** - Scans controllers, Minimal API endpoints, and routes using reflection
 - **Interactive UI** - Test endpoints directly from the browser with real-time responses
-- **Authentication** - Support for Bearer tokens, API keys, and OAuth 2.0
+- **Authentication** - Support for Bearer tokens, API keys, OAuth 2.0, and cookies
 - **SignalR Debugging** - Real-time hub testing with method invocation and event monitoring
 - **XML Documentation** - Automatically reads and displays your code comments
 - **Code Export** - Generate request snippets in multiple programming languages
 - **Performance Metrics** - Track request duration and response size
+- **Data Annotations** - Validation constraints from model attributes surfaced in the UI
+- **Multiple Response Codes** - Full `[ProducesResponseType]` support with per-status-code schemas
 
 ## Quick Start
 
@@ -66,12 +68,12 @@ Then navigate to `http://localhost:5121/kaya` to see the API Explorer in action.
 
 ## How It Works
 
-Kaya API Explorer uses .NET reflection to scan your application's controllers and actions at runtime. It:
+Kaya API Explorer uses .NET reflection to scan your application's endpoints at runtime. It:
 
-1. **Discovers Controllers**: Finds all classes inheriting from `ControllerBase`
-2. **Analyzes Actions**: Examines public methods and their HTTP attributes
-3. **Extracts Metadata**: Gathers information about parameters, return types, and routing
-4. **Generates Documentation**: Creates a JSON representation of your API
+1. **Discovers Endpoints**: Finds all `ControllerBase` controllers and Minimal API routes (`MapGet`, `MapPost`, etc.)
+2. **Analyzes Actions**: Examines public methods, their HTTP attributes, and `[ProducesResponseType]` declarations
+3. **Extracts Metadata**: Gathers parameters, return types, routing, and Data Annotations validation constraints
+4. **Generates Documentation**: Creates a fully valid OpenAPI 3.0 JSON representation of your API
 5. **Serves UI**: Provides a beautiful web interface to explore the documentation and interact with the endpoints
 
 ## API Information Captured
@@ -80,10 +82,11 @@ For each endpoint, Kaya captures:
 
 - **HTTP Method** (GET, POST, PUT, DELETE, etc.)
 - **Route Path** with parameters
-- **Controller and Action Names**
-- **Parameters** with types, sources (query, body, route, header), and requirements
-- **Response Types** and descriptions
-- **Status Codes** and their meanings
+- **Controller and Action Names** (or delegate name for Minimal APIs)
+- **Parameters** with types, sources (query, body, route, header, cookie), and requirements
+- **Data Annotation Constraints** (`[Required]`, `[Range]`, `[StringLength]`, `[EmailAddress]`, etc.)
+- **Response Types** and descriptions per status code
+- **Status Codes** declared via `[ProducesResponseType]`
 
 ## Configuration
 

@@ -1,6 +1,8 @@
 using Kaya.ApiExplorer.Configuration;
 using Kaya.ApiExplorer.Models;
 using Kaya.ApiExplorer.Services;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -236,6 +238,167 @@ public class EndpointScannerTests
         Assert.NotNull(notFound);
         Assert.False(string.IsNullOrWhiteSpace(notFound.Description));
     }
+
+    // -------------------------------------------------------------------------
+    // Documentation metadata: contact, license, servers, termsOfService
+    // -------------------------------------------------------------------------
+
+    private static EndpointScanner CreateScannerWithMetadata()
+        => new(new KayaApiExplorerOptions
+        {
+            Documentation = new DocumentationOptions
+            {
+                Title = "Meta API",
+                Version = "2.0.0",
+                Description = "Full description",
+                TermsOfService = "https://example.com/terms",
+                Contact = new ContactOptions { Name = "John", Email = "john@example.com", Url = "https://john.com" },
+                License = new LicenseOptions { Name = "MIT", Url = "https://opensource.org/licenses/MIT" },
+                Servers = [new ServerOptions { Url = "https://api.example.com", Description = "Production" }]
+            }
+        });
+
+    [Fact]
+    public void ScanEndpoints_ShouldIncludeContactInfo_WhenProvided()
+    {
+        var result = CreateScannerWithMetadata().ScanEndpoints(EmptyServiceProvider());
+        Assert.NotNull(result.Contact);
+        Assert.Equal("John", result.Contact.Name);
+        Assert.Equal("john@example.com", result.Contact.Email);
+    }
+
+    [Fact]
+    public void ScanEndpoints_ShouldIncludeLicenseInfo_WhenProvided()
+    {
+        var result = CreateScannerWithMetadata().ScanEndpoints(EmptyServiceProvider());
+        Assert.NotNull(result.License);
+        Assert.Equal("MIT", result.License.Name);
+    }
+
+    [Fact]
+    public void ScanEndpoints_ShouldIncludeServers_WhenProvided()
+    {
+        var result = CreateScannerWithMetadata().ScanEndpoints(EmptyServiceProvider());
+        Assert.NotEmpty(result.Servers);
+        Assert.Equal("https://api.example.com", result.Servers[0].Url);
+    }
+
+    [Fact]
+    public void ScanEndpoints_ShouldIncludeTermsOfService_WhenProvided()
+    {
+        var result = CreateScannerWithMetadata().ScanEndpoints(EmptyServiceProvider());
+        Assert.Equal("https://example.com/terms", result.TermsOfService);
+    }
+
+    // -------------------------------------------------------------------------
+    // Authorization & obsolete detection on controllers
+    // -------------------------------------------------------------------------
+
+    [Fact]
+    public void ScanEndpoints_ShouldDetectAuthorizationOnController()
+    {
+        var result = CreateScanner().ScanEndpoints(EmptyServiceProvider());
+        var controller = result.Controllers.FirstOrDefault(c => c.Name == "AuthTestController");
+        Assert.NotNull(controller);
+        Assert.True(controller.RequiresAuthorization);
+    }
+
+    [Fact]
+    public void ScanEndpoints_ShouldDetectRolesOnController()
+    {
+        var result = CreateScanner().ScanEndpoints(EmptyServiceProvider());
+        var controller = result.Controllers.FirstOrDefault(c => c.Name == "AuthTestController");
+        Assert.NotNull(controller);
+        Assert.Contains("Admin", controller.Roles);
+        Assert.Contains("Manager", controller.Roles);
+    }
+
+    [Fact]
+    public void ScanEndpoints_ShouldDetectObsoleteController()
+    {
+        var result = CreateScanner().ScanEndpoints(EmptyServiceProvider());
+        var controller = result.Controllers.FirstOrDefault(c => c.Name == "ObsoleteTestController");
+        Assert.NotNull(controller);
+        Assert.True(controller.IsObsolete);
+        Assert.False(string.IsNullOrWhiteSpace(controller.ObsoleteMessage));
+    }
+
+    // -------------------------------------------------------------------------
+    // Special parameter sources: Header, Form, File, Enum, Default
+    // -------------------------------------------------------------------------
+
+    [Fact]
+    public void ScanEndpoints_ShouldDetectHeaderParameter()
+    {
+        var result = CreateScanner().ScanEndpoints(EmptyServiceProvider());
+        var controller = result.Controllers.FirstOrDefault(c => c.Name == "ExtraTestController");
+        Assert.NotNull(controller);
+        var endpoint = controller.Endpoints.FirstOrDefault(e => e.MethodName == "GetWithHeader");
+        Assert.NotNull(endpoint);
+        Assert.Contains(endpoint.Parameters, p => p.Source == "Header");
+    }
+
+    [Fact]
+    public void ScanEndpoints_ShouldDetectFileParameter()
+    {
+        var result = CreateScanner().ScanEndpoints(EmptyServiceProvider());
+        var controller = result.Controllers.FirstOrDefault(c => c.Name == "ExtraTestController");
+        Assert.NotNull(controller);
+        var endpoint = controller.Endpoints.FirstOrDefault(e => e.MethodName == "UploadFile");
+        Assert.NotNull(endpoint);
+        Assert.Contains(endpoint.Parameters, p => p.IsFile && p.Source == "File");
+    }
+
+    [Fact]
+    public void ScanEndpoints_ShouldDetectFormParameter()
+    {
+        var result = CreateScanner().ScanEndpoints(EmptyServiceProvider());
+        var controller = result.Controllers.FirstOrDefault(c => c.Name == "ExtraTestController");
+        Assert.NotNull(controller);
+        var endpoint = controller.Endpoints.FirstOrDefault(e => e.MethodName == "PostForm");
+        Assert.NotNull(endpoint);
+        Assert.Contains(endpoint.Parameters, p => p.Source == "Form");
+    }
+
+    [Fact]
+    public void ScanEndpoints_ShouldDetectEnumParameter()
+    {
+        var result = CreateScanner().ScanEndpoints(EmptyServiceProvider());
+        var controller = result.Controllers.FirstOrDefault(c => c.Name == "ExtraTestController");
+        Assert.NotNull(controller);
+        var endpoint = controller.Endpoints.FirstOrDefault(e => e.MethodName == "GetWithEnum");
+        Assert.NotNull(endpoint);
+        Assert.Contains(endpoint.Parameters, p => p.IsEnum);
+    }
+
+    [Fact]
+    public void ScanEndpoints_ShouldDetectDefaultParameterValue()
+    {
+        var result = CreateScanner().ScanEndpoints(EmptyServiceProvider());
+        var controller = result.Controllers.FirstOrDefault(c => c.Name == "ExtraTestController");
+        Assert.NotNull(controller);
+        var endpoint = controller.Endpoints.FirstOrDefault(e => e.MethodName == "GetWithDefault");
+        Assert.NotNull(endpoint);
+        var param = endpoint.Parameters.FirstOrDefault(p => p.Name == "count");
+        Assert.NotNull(param);
+        // int has a default value of 10; the scanner exposes it via DefaultValue
+        Assert.Equal(10, param.DefaultValue);
+    }
+
+    [Fact]
+    public void ScanEndpoints_ShouldDetectQueryParameter_WithDefaultValue()
+    {
+        var result = CreateScanner().ScanEndpoints(EmptyServiceProvider());
+        var controller = result.Controllers.FirstOrDefault(c => c.Name == "AdvancedTestController");
+        Assert.NotNull(controller);
+        var endpoint = controller.Endpoints.FirstOrDefault(e => e.MethodName == "UpdateUser");
+        Assert.NotNull(endpoint);
+        var notifyParam = endpoint.Parameters.FirstOrDefault(p => p.Name == "notify");
+        Assert.NotNull(notifyParam);
+        Assert.Equal("Query", notifyParam.Source);
+        // bool notify = false has a default value exposed by the scanner
+        Assert.NotNull(notifyParam.DefaultValue);
+    }
 }
 
 // ─── Test controller for ProducesResponseType scanning ────────────────────────
@@ -370,4 +533,44 @@ public class AdvancedTestController : ControllerBase
     {
         return Ok(null);
     }
+}
+
+// ─── Additional test controllers ──────────────────────────────────────────────
+
+[ApiController]
+[Route("api/extra-test")]
+public class ExtraTestController : ControllerBase
+{
+    [HttpGet("with-header")]
+    public IActionResult GetWithHeader([FromHeader(Name = "X-Custom-Header")] string customHeader) => Ok();
+
+    [HttpPost("upload")]
+    public IActionResult UploadFile(IFormFile file) => Ok();
+
+    [HttpPost("form")]
+    public IActionResult PostForm([FromForm] string name, [FromForm] int age) => Ok();
+
+    [HttpGet("with-enum")]
+    public IActionResult GetWithEnum([FromQuery] TestStatus status) => Ok();
+
+    [HttpGet("with-default")]
+    public IActionResult GetWithDefault([FromQuery] int count = 10) => Ok();
+}
+
+[ApiController]
+[Route("api/auth-test")]
+[Authorize(Roles = "Admin,Manager")]
+public class AuthTestController : ControllerBase
+{
+    [HttpGet]
+    public IActionResult Get() => Ok();
+}
+
+[ApiController]
+[Route("api/obsolete-test")]
+[Obsolete("Use the new V2 controller instead")]
+public class ObsoleteTestController : ControllerBase
+{
+    [HttpGet]
+    public IActionResult Get() => Ok();
 }

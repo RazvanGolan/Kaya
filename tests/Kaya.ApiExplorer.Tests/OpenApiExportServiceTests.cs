@@ -424,4 +424,338 @@ public class OpenApiExportServiceTests
         Assert.True(responses.ContainsKey("204"));
         Assert.False(responses.ContainsKey("200"), "Response fallback must not add a 200 when ProducesResponses is used");
     }
+
+    // -------------------------------------------------------------------------
+    // Spec-level metadata: contact, license, servers, termsOfService
+    // -------------------------------------------------------------------------
+
+    private static ApiDocumentation BuildDocWithMetadata() => new()
+    {
+        Title = "Meta API",
+        Version = "3.0.0",
+        Description = "Desc",
+        TermsOfService = "https://example.com/terms",
+        Contact = new ApiDocumentationContact { Name = "Jane", Email = "jane@example.com", Url = "https://jane.dev" },
+        License = new ApiDocumentationLicense { Name = "MIT", Url = "https://opensource.org/licenses/MIT" },
+        Servers = [new ApiDocumentationServer { Url = "https://api.example.com", Description = "Prod" }],
+        Controllers = []
+    };
+
+    [Fact]
+    public void GenerateOpenApiSpec_IncludesContact_WhenSet()
+    {
+        var spec = JsonRoundTrip(Service.GenerateOpenApiSpec(BuildDocWithMetadata()));
+        var info = (JsonElement)spec["info"];
+        Assert.True(info.TryGetProperty("contact", out var contact));
+        Assert.Equal("Jane", contact.GetProperty("name").GetString());
+        Assert.Equal("jane@example.com", contact.GetProperty("email").GetString());
+        Assert.Equal("https://jane.dev", contact.GetProperty("url").GetString());
+    }
+
+    [Fact]
+    public void GenerateOpenApiSpec_IncludesLicense_WhenSet()
+    {
+        var spec = JsonRoundTrip(Service.GenerateOpenApiSpec(BuildDocWithMetadata()));
+        var info = (JsonElement)spec["info"];
+        Assert.True(info.TryGetProperty("license", out var license));
+        Assert.Equal("MIT", license.GetProperty("name").GetString());
+        Assert.Equal("https://opensource.org/licenses/MIT", license.GetProperty("url").GetString());
+    }
+
+    [Fact]
+    public void GenerateOpenApiSpec_IncludesServers_WhenSet()
+    {
+        var spec = JsonRoundTrip(Service.GenerateOpenApiSpec(BuildDocWithMetadata()));
+        Assert.True(spec.ContainsKey("servers"));
+        var servers = (JsonElement)spec["servers"];
+        Assert.Equal(JsonValueKind.Array, servers.ValueKind);
+        Assert.Equal("https://api.example.com", servers[0].GetProperty("url").GetString());
+    }
+
+    [Fact]
+    public void GenerateOpenApiSpec_IncludesTermsOfService_WhenSet()
+    {
+        var spec = JsonRoundTrip(Service.GenerateOpenApiSpec(BuildDocWithMetadata()));
+        var info = (JsonElement)spec["info"];
+        Assert.True(info.TryGetProperty("termsOfService", out var tos));
+        Assert.Equal("https://example.com/terms", tos.GetString());
+    }
+
+    [Fact]
+    public void GenerateOpenApiSpec_Contact_OmittedWhenNotSet()
+    {
+        var spec = JsonRoundTrip(Service.GenerateOpenApiSpec(BuildDoc()));
+        var info = (JsonElement)spec["info"];
+        Assert.False(info.TryGetProperty("contact", out _));
+    }
+
+    [Fact]
+    public void GenerateOpenApiSpec_License_OmittedWhenNotSet()
+    {
+        var spec = JsonRoundTrip(Service.GenerateOpenApiSpec(BuildDoc()));
+        var info = (JsonElement)spec["info"];
+        Assert.False(info.TryGetProperty("license", out _));
+    }
+
+    // -------------------------------------------------------------------------
+    // Parameter building: route / query / header
+    // -------------------------------------------------------------------------
+
+    private static List<JsonElement> GetOperationParameters(object spec, string path, string method)
+    {
+        var json = JsonSerializer.Serialize(spec, new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase });
+        using var doc = JsonDocument.Parse(json);
+        var operation = doc.RootElement.GetProperty("paths").GetProperty(path).GetProperty(method);
+        if (!operation.TryGetProperty("parameters", out var parameters))
+            return [];
+        return [.. parameters.EnumerateArray().Select(p => p.Clone())];
+    }
+
+    [Fact]
+    public void BuildParameters_RouteParameter_HasPathIn()
+    {
+        var endpoint = new ApiEndpoint
+        {
+            Path = "/api/items/{id}",
+            HttpMethodType = "GET",
+            Parameters = [new ApiParameter { Name = "id", Type = "integer", Source = "Route", Required = true }]
+        };
+        var parameters = GetOperationParameters(Service.GenerateOpenApiSpec(BuildDoc(endpoint)), "/api/items/{id}", "get");
+        var idParam = parameters.First(p => p.GetProperty("name").GetString() == "id");
+        Assert.Equal("path", idParam.GetProperty("in").GetString());
+        Assert.True(idParam.GetProperty("required").GetBoolean());
+    }
+
+    [Fact]
+    public void BuildParameters_QueryParameter_HasQueryIn()
+    {
+        var endpoint = new ApiEndpoint
+        {
+            Path = "/api/items",
+            HttpMethodType = "GET",
+            Parameters = [new ApiParameter { Name = "page", Type = "integer", Source = "Query", Required = false }]
+        };
+        var parameters = GetOperationParameters(Service.GenerateOpenApiSpec(BuildDoc(endpoint)), "/api/items", "get");
+        var pageParam = parameters.First(p => p.GetProperty("name").GetString() == "page");
+        Assert.Equal("query", pageParam.GetProperty("in").GetString());
+    }
+
+    [Fact]
+    public void BuildParameters_HeaderParameter_HasHeaderIn_AndUsesHeaderName()
+    {
+        var endpoint = new ApiEndpoint
+        {
+            Path = "/api/secure",
+            HttpMethodType = "GET",
+            Parameters =
+            [
+                new ApiParameter
+                {
+                    Name = "authorization",
+                    HeaderName = "X-Api-Key",
+                    Type = "string",
+                    Source = "Header",
+                    Required = true
+                }
+            ]
+        };
+        var parameters = GetOperationParameters(Service.GenerateOpenApiSpec(BuildDoc(endpoint)), "/api/secure", "get");
+        var headerParam = parameters.First();
+        Assert.Equal("header", headerParam.GetProperty("in").GetString());
+        Assert.Equal("X-Api-Key", headerParam.GetProperty("name").GetString());
+    }
+
+    [Fact]
+    public void BuildParameters_SkipsBodyAndFileAndFormParams()
+    {
+        var endpoint = new ApiEndpoint
+        {
+            Path = "/api/upload",
+            HttpMethodType = "POST",
+            Parameters =
+            [
+                new ApiParameter { Name = "file", Type = "string", Source = "File", IsFile = true },
+                new ApiParameter { Name = "data", Type = "string", Source = "Body" },
+                new ApiParameter { Name = "note", Type = "string", Source = "Form" },
+                new ApiParameter { Name = "tag", Type = "string", Source = "Query" }
+            ]
+        };
+        var parameters = GetOperationParameters(Service.GenerateOpenApiSpec(BuildDoc(endpoint)), "/api/upload", "post");
+        Assert.Single(parameters);
+        Assert.Equal("tag", parameters[0].GetProperty("name").GetString());
+    }
+
+    [Fact]
+    public void BuildParameters_AppliesConstraints_ToSchema()
+    {
+        var endpoint = new ApiEndpoint
+        {
+            Path = "/api/items",
+            HttpMethodType = "GET",
+            Parameters =
+            [
+                new ApiParameter
+                {
+                    Name = "q",
+                    Type = "string",
+                    Source = "Query",
+                    Required = false,
+                    Constraints = new ApiConstraints { MinLength = 3, MaxLength = 50 }
+                }
+            ]
+        };
+        var parameters = GetOperationParameters(Service.GenerateOpenApiSpec(BuildDoc(endpoint)), "/api/items", "get");
+        var schema = parameters[0].GetProperty("schema");
+        Assert.Equal(3, schema.GetProperty("minLength").GetInt32());
+        Assert.Equal(50, schema.GetProperty("maxLength").GetInt32());
+    }
+
+    [Fact]
+    public void BuildParameters_DefaultValue_IncludedInSchema()
+    {
+        var endpoint = new ApiEndpoint
+        {
+            Path = "/api/items",
+            HttpMethodType = "GET",
+            Parameters =
+            [
+                new ApiParameter { Name = "page", Type = "integer", Source = "Query", DefaultValue = 1 }
+            ]
+        };
+        var parameters = GetOperationParameters(Service.GenerateOpenApiSpec(BuildDoc(endpoint)), "/api/items", "get");
+        var schema = parameters[0].GetProperty("schema");
+        Assert.Equal(1, schema.GetProperty("default").GetInt32());
+    }
+
+    // -------------------------------------------------------------------------
+    // Schema type building for various friendly type names
+    // -------------------------------------------------------------------------
+
+    private Dictionary<string, JsonElement> GetSchemas(object spec)
+    {
+        var json = JsonSerializer.Serialize(spec, new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase });
+        using var doc = JsonDocument.Parse(json);
+        if (!doc.RootElement.TryGetProperty("components", out var components)) return [];
+        if (!components.TryGetProperty("schemas", out var schemas)) return [];
+        return schemas.EnumerateObject().ToDictionary(p => p.Name, p => p.Value.Clone());
+    }
+
+    [Theory]
+    [InlineData("integer", "integer", "int32")]
+    [InlineData("boolean", "boolean", null)]
+    [InlineData("datetime", "string", "date-time")]
+    [InlineData("guid", "string", "uuid")]
+    [InlineData("decimal", "number", "double")]
+    [InlineData("double", "number", "double")]
+    [InlineData("float", "number", "float")]
+    [InlineData("byte", "string", "byte")]
+    public void BuildSchemaFromFriendlyType_CorrectTypeAndFormat(string friendlyType, string expectedType, string? expectedFormat)
+    {
+        var endpoint = new ApiEndpoint
+        {
+            Path = "/api/test",
+            HttpMethodType = "GET",
+            ProducesResponses =
+            [
+                new ApiProducesResponse { StatusCode = 200, Type = friendlyType, Description = "OK" }
+            ]
+        };
+        var responses = GetResponses(Service.GenerateOpenApiSpec(BuildDoc(endpoint)), "/api/test", "get");
+        var schema = responses["200"].GetProperty("content").GetProperty("application/json").GetProperty("schema");
+        Assert.Equal(expectedType, schema.GetProperty("type").GetString());
+        if (expectedFormat is not null)
+            Assert.Equal(expectedFormat, schema.GetProperty("format").GetString());
+    }
+
+    [Fact]
+    public void BuildSchemaFromFriendlyType_ArrayType_HasArrayTypeWithItems()
+    {
+        var endpoint = new ApiEndpoint
+        {
+            Path = "/api/items",
+            HttpMethodType = "GET",
+            ProducesResponses =
+            [
+                new ApiProducesResponse { StatusCode = 200, Type = "string[]", Description = "OK" }
+            ]
+        };
+        var responses = GetResponses(Service.GenerateOpenApiSpec(BuildDoc(endpoint)), "/api/items", "get");
+        var schema = responses["200"].GetProperty("content").GetProperty("application/json").GetProperty("schema");
+        Assert.Equal("array", schema.GetProperty("type").GetString());
+        Assert.True(schema.TryGetProperty("items", out _));
+    }
+
+    [Fact]
+    public void BuildSchemaFromFriendlyType_DictionaryType_HasObjectWithAdditionalProperties()
+    {
+        var endpoint = new ApiEndpoint
+        {
+            Path = "/api/dict",
+            HttpMethodType = "GET",
+            ProducesResponses =
+            [
+                new ApiProducesResponse { StatusCode = 200, Type = "Dictionary<string, integer>", Description = "OK" }
+            ]
+        };
+        var responses = GetResponses(Service.GenerateOpenApiSpec(BuildDoc(endpoint)), "/api/dict", "get");
+        var schema = responses["200"].GetProperty("content").GetProperty("application/json").GetProperty("schema");
+        Assert.Equal("object", schema.GetProperty("type").GetString());
+        Assert.True(schema.TryGetProperty("additionalProperties", out _));
+    }
+
+    // -------------------------------------------------------------------------
+    // File upload (multipart/form-data)
+    // -------------------------------------------------------------------------
+
+    [Fact]
+    public void BuildRequestBody_FileUpload_UsesMultipartFormData()
+    {
+        var endpoint = new ApiEndpoint
+        {
+            Path = "/api/upload",
+            HttpMethodType = "POST",
+            Parameters = [new ApiParameter { Name = "file", Type = "IFormFile", Source = "File", IsFile = true }]
+        };
+        var json = JsonSerializer.Serialize(
+            Service.GenerateOpenApiSpec(BuildDoc(endpoint)),
+            new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase });
+        using var doc = JsonDocument.Parse(json);
+        var body = doc.RootElement.GetProperty("paths").GetProperty("/api/upload").GetProperty("post").GetProperty("requestBody");
+        Assert.True(body.GetProperty("content").TryGetProperty("multipart/form-data", out _));
+    }
+
+    // -------------------------------------------------------------------------
+    // Request body description
+    // -------------------------------------------------------------------------
+
+    [Fact]
+    public void BuildRequestBody_SetsDescription_WhenProvided()
+    {
+        var endpoint = new ApiEndpoint
+        {
+            Path = "/api/create",
+            HttpMethodType = "POST",
+            RequestBody = new ApiRequestBody { Type = "string", Description = "The payload", Example = string.Empty }
+        };
+        var json = JsonSerializer.Serialize(
+            Service.GenerateOpenApiSpec(BuildDoc(endpoint)),
+            new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase });
+        using var doc = JsonDocument.Parse(json);
+        var body = doc.RootElement.GetProperty("paths").GetProperty("/api/create").GetProperty("post").GetProperty("requestBody");
+        Assert.Equal("The payload", body.GetProperty("description").GetString());
+    }
+
+    // -------------------------------------------------------------------------
+    // Tags list in spec
+    // -------------------------------------------------------------------------
+
+    [Fact]
+    public void GenerateOpenApiSpec_TagsList_ContainsControllerName()
+    {
+        var endpoint = new ApiEndpoint { Path = "/api/test", HttpMethodType = "GET" };
+        var spec = JsonRoundTrip(Service.GenerateOpenApiSpec(BuildDoc(endpoint)));
+        Assert.True(spec.ContainsKey("tags"));
+        var tags = (JsonElement)spec["tags"];
+        Assert.Contains(tags.EnumerateArray(), t => t.GetProperty("name").GetString() == "Test");
+    }
 }

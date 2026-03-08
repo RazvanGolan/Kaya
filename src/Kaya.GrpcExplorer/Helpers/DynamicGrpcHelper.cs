@@ -1,3 +1,4 @@
+using System.Diagnostics.CodeAnalysis;
 using System.Reflection;
 using System.Text.Json;
 using Google.Protobuf;
@@ -557,6 +558,7 @@ public static class DynamicGrpcHelper
     /// <summary>
     /// Invokes a unary method dynamically
     /// </summary>
+    [ExcludeFromCodeCoverage(Justification = "Requires a live gRPC channel with an active call invoker connected to a running server; verified through integration tests.")]
     public static async Task<IMessage> InvokeUnaryAsync(
         GrpcChannel channel,
         Method<IMessage, IMessage> method,
