@@ -33,6 +33,12 @@ public class ApiExplorerMiddleware
                 await ServeApiDocs(context);
                 return;
             }
+
+            if (path == $"{_routePrefix.ToLower()}/openapi.json")
+            {
+                await ServeOpenApiSpec(context);
+                return;
+            }
         }
 
         await _next(context);
@@ -60,6 +66,24 @@ public class ApiExplorerMiddleware
         var documentation = scanner.ScanEndpoints(context.RequestServices);
         
         var json = JsonSerializer.Serialize(documentation, new JsonSerializerOptions
+        {
+            PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+            WriteIndented = true
+        });
+
+        context.Response.ContentType = "application/json";
+        await context.Response.WriteAsync(json);
+    }
+
+    private static async Task ServeOpenApiSpec(HttpContext context)
+    {
+        var scanner = context.RequestServices.GetRequiredService<IEndpointScanner>();
+        var exportService = context.RequestServices.GetRequiredService<IOpenApiExportService>();
+
+        var documentation = scanner.ScanEndpoints(context.RequestServices);
+        var spec = exportService.GenerateOpenApiSpec(documentation);
+
+        var json = JsonSerializer.Serialize(spec, new JsonSerializerOptions
         {
             PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
             WriteIndented = true

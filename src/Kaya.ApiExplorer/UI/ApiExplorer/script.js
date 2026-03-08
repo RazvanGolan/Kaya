@@ -768,30 +768,30 @@ function updateThemeButton() {
 async function checkOpenApiAvailability() {
     const exportBtn = document.getElementById('exportBtn');
     if (!exportBtn) return;
-    
+
+    const config = window.KayaApiExplorerConfig || {};
+    const routePrefix = config.routePrefix || '/kaya';
+
     try {
-        // Try common OpenAPI endpoint paths
+        // Prefer an existing Swagger / ASP.NET Core OpenAPI endpoint if available
         const possiblePaths = ['/openapi/v1.json', '/openapi.json', '/swagger/v1/swagger.json'];
-        let openApiUrl = null;
-        
+        let externalUrl = null;
+
         for (const path of possiblePaths) {
             try {
-                const response = await fetch(path);
-                if (response.ok) {
-                    openApiUrl = path;
-                    break;
-                }
-            } catch (e) {
-                // Continue trying other paths
-            }
+                const response = await fetch(path, { method: 'GET' });
+                if (response.ok) { externalUrl = path; break; }
+            } catch (e) { /* continue */ }
         }
-        
-        if (openApiUrl) {
-            exportBtn.style.display = 'block';
-            exportBtn.addEventListener('click', () => exportOpenApiSpec(openApiUrl));
-        }
+
+        const targetUrl = externalUrl ?? `${routePrefix}/openapi.json`;
+        exportBtn.style.display = 'block';
+        exportBtn.addEventListener('click', () => exportOpenApiSpec(targetUrl));
     } catch (error) {
-        console.warn('Error checking OpenAPI availability:', error);
+        // Always show using the built-in fallback
+        const routePrefix2 = (window.KayaApiExplorerConfig || {}).routePrefix || '/kaya';
+        exportBtn.style.display = 'block';
+        exportBtn.addEventListener('click', () => exportOpenApiSpec(`${routePrefix2}/openapi.json`));
     }
 }
 

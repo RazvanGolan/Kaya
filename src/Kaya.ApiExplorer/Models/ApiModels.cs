@@ -36,6 +36,7 @@ public class ApiParameter
     public object? DefaultValue { get; set; }
     public ApiSchema? Schema { get; set; } // For complex types
     public bool IsFile { get; set; } // Indicates if this is a file upload parameter
+    public bool IsEnum { get; set; }
     public string? HeaderName { get; set; } // The actual header name when using [FromHeader(Name = "...")]
     public ApiConstraints? Constraints { get; set; }
 }
@@ -55,12 +56,15 @@ public class ApiRequestBody
     public string Type { get; set; } = string.Empty;
     public string Example { get; set; } = string.Empty;
     public string Description { get; set; } = string.Empty;
+    public ApiSchema? Schema { get; set; }
 }
 
 public class ApiResponse
 {
     public string Type { get; set; } = string.Empty;
     public string Example { get; set; } = string.Empty;
+    public string Description { get; set; } = string.Empty;
+    public ApiSchema? Schema { get; set; }
 }
 
 public class ApiSchema
@@ -85,5 +89,28 @@ public class ApiDocumentation
     public string Title { get; set; } = "API Documentation";
     public string Version { get; set; } = "1.0.0";
     public string Description { get; set; } = string.Empty;
+    public ApiDocumentationContact? Contact { get; set; }
+    public ApiDocumentationLicense? License { get; set; }
+    public string? TermsOfService { get; set; }
+    public List<ApiDocumentationServer> Servers { get; set; } = [];
     public List<ApiController> Controllers { get; set; } = [];
+}
+
+public class ApiDocumentationContact
+{
+    public string? Name { get; set; }
+    public string? Email { get; set; }
+    public string? Url { get; set; }
+}
+
+public class ApiDocumentationLicense
+{
+    public string Name { get; set; } = string.Empty;
+    public string? Url { get; set; }
+}
+
+public class ApiDocumentationServer
+{
+    public string Url { get; set; } = string.Empty;
+    public string? Description { get; set; }
 }

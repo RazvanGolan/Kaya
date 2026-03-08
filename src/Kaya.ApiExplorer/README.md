@@ -99,6 +99,41 @@ builder.Services.AddKayaApiExplorer();
 builder.Services.AddKayaApiExplorer(routePrefix: "/api-explorer", defaultTheme: "dark");
 ```
 
+### Documentation Metadata
+
+Configure `options.Documentation` to customise the metadata shown in the UI and in the exported OpenAPI spec. All fields are optional.
+
+```csharp
+builder.Services.AddKayaApiExplorer(options =>
+{
+    options.Documentation.Title = "Acme Orders API";
+    options.Documentation.Version = "v3";
+    options.Documentation.Description = "Manages orders, line items, and fulfilment workflows.";
+    options.Documentation.TermsOfService = "https://acme.com/terms";
+
+    options.Documentation.Contact = new ContactOptions
+    {
+        Name = "Acme API Support",
+        Email = "api@acme.com",
+        Url = "https://acme.com/support"
+    };
+
+    options.Documentation.License = new LicenseOptions
+    {
+        Name = "MIT",
+        Url = "https://opensource.org/licenses/MIT"
+    };
+
+    options.Documentation.Servers =
+    [
+        new ServerOptions { Url = "https://api.acme.com/v3", Description = "Production" },
+        new ServerOptions { Url = "http://localhost:5000",   Description = "Local" }
+    ];
+});
+```
+
+These values are written directly into the OpenAPI `info`, `contact`, `license`, `termsOfService`, and `servers` objects, producing a fully valid OpenAPI 3.0 spec.
+
 ### Advanced Configuration with SignalR Debugging
 
 ```csharp

@@ -69,7 +69,7 @@ public static class ReflectionHelper
             var argNames = genericArgs.Select(GetFriendlyTypeName);
             return $"{typeName}<{string.Join(", ", argNames)}>";
         }
-        
+
         return type.Name;
     }
 
@@ -91,7 +91,7 @@ public static class ReflectionHelper
                Nullable.GetUnderlyingType(type) == null;
     }
 
-    private static bool IsEnumerableType(Type type)
+    public static bool IsEnumerableType(Type type)
     {
         if (type.IsArray) return true;
         
@@ -168,7 +168,9 @@ public static class ReflectionHelper
         GenerateSchemaForType(type, schemas, processedTypes);
         
         var typeName = GetFriendlyTypeName(type);
-        return schemas.GetValueOrDefault(typeName);
+        // Fall back to type.Name so closed-generic types are found correctly.
+        return schemas.GetValueOrDefault(typeName)
+            ?? schemas.GetValueOrDefault(type.Name);
     }
 
     private static void GenerateSchemaForType(Type type, Dictionary<string, ApiSchema> schemas, HashSet<Type> processedTypes)

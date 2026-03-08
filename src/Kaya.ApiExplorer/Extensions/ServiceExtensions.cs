@@ -34,6 +34,7 @@ public static class ServiceCollectionExtensions
     {
         services.AddSingleton<IEndpointScanner, EndpointScanner>();
         services.AddSingleton<IUIService, UIService>();
+        services.AddSingleton<IOpenApiExportService, OpenApiExportService>();
         
         var options = new KayaApiExplorerOptions();
         configureOptions(options);

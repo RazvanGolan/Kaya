@@ -1,5 +1,6 @@
 using System.Reflection;
 using System.Text.RegularExpressions;
+using Kaya.ApiExplorer.Configuration;
 using Kaya.ApiExplorer.Helpers;
 using Kaya.ApiExplorer.Models;
 using Microsoft.AspNetCore.Authorization;
@@ -19,15 +20,33 @@ public interface IEndpointScanner
     ApiDocumentation ScanEndpoints(IServiceProvider serviceProvider);
 }
 
-public class EndpointScanner : IEndpointScanner
+public class EndpointScanner(KayaApiExplorerOptions options) : IEndpointScanner
 {
     public ApiDocumentation ScanEndpoints(IServiceProvider serviceProvider)
     {
+        var doc = options.Documentation;
         var documentation = new ApiDocumentation
         {
-            Title = "Kaya API Explorer",
-            Version = "1.0.0",
-            Description = "Automatically generated API documentation"
+            Title = string.IsNullOrWhiteSpace(doc.Title) ? "API Documentation" : doc.Title,
+            Version = string.IsNullOrWhiteSpace(doc.Version) ? "1.0.0" : doc.Version,
+            Description = doc.Description,
+            TermsOfService = doc.TermsOfService,
+            Contact = doc.Contact is null ? null : new ApiDocumentationContact
+            {
+                Name = doc.Contact.Name,
+                Email = doc.Contact.Email,
+                Url = doc.Contact.Url
+            },
+            License = doc.License is null ? null : new ApiDocumentationLicense
+            {
+                Name = doc.License.Name,
+                Url = doc.License.Url
+            },
+            Servers = [.. doc.Servers.Select(s => new ApiDocumentationServer
+            {
+                Url = s.Url,
+                Description = s.Description
+            })]
         };
 
         var assemblies = AppDomain.CurrentDomain.GetAssemblies()
@@ -142,7 +161,7 @@ public class EndpointScanner : IEndpointScanner
                 var endpointName = nameMetadata?.EndpointName ?? pattern;
 
                 var parameters = BuildMinimalApiParameters(routeEndpoint);
-                var requestBody = BuildMinimalApiRequestBody(routeEndpoint);
+                var requestBody = BuildMinimalApiRequestBody(routeEndpoint, description);
 
                 foreach (var httpMethod in httpMethodMeta.HttpMethods)
                 {
@@ -186,7 +205,7 @@ public class EndpointScanner : IEndpointScanner
         return char.ToUpper(first[0]) + first[1..].ToLower();
     }
 
-    private static ApiRequestBody? BuildMinimalApiRequestBody(RouteEndpoint endpoint)
+    private static ApiRequestBody? BuildMinimalApiRequestBody(RouteEndpoint endpoint, string endpointDescription)
     {
         var acceptsMeta = endpoint.Metadata.GetMetadata<IAcceptsMetadata>();
         if (acceptsMeta?.RequestType is null) return null;
@@ -200,11 +219,19 @@ public class EndpointScanner : IEndpointScanner
         var processedTypes = new HashSet<Type>();
         var example = ReflectionHelper.GenerateExampleJson(underlyingType, schemas, processedTypes);
 
+        // Use .WithDescription() metadata if set, otherwise derive from the endpoint summary or type name
+        var descAttr = endpoint.Metadata.GetMetadata<EndpointDescriptionAttribute>();
+        var bodyDescription = descAttr?.Description
+            ?? (!string.IsNullOrWhiteSpace(endpointDescription) ? endpointDescription : $"Request body of type {typeName}");
+
+        var schemaType = UnwrapCollectionType(underlyingType);
+
         return new ApiRequestBody
         {
             Type = typeName,
-            Description = $"Request body of type {typeName}",
-            Example = example
+            Description = bodyDescription,
+            Example = example,
+            Schema = ReflectionHelper.GenerateSchemaForType(schemaType)
         };
     }
 
@@ -290,7 +317,7 @@ public class EndpointScanner : IEndpointScanner
         var routeAttribute = controllerType.GetCustomAttribute<RouteAttribute>();
         var controllerRoute = routeAttribute?.Template ?? "api/[controller]";
         
-        controllerRoute = controllerRoute.Replace("[controller]", controllerName.ToLower());
+        controllerRoute = controllerRoute.Replace("[controller]", controllerName);
 
         var methods = controllerType.GetMethods(BindingFlags.Public | BindingFlags.Instance)
             .Where(m => m.IsPublic && !m.IsSpecialName && m.DeclaringType == controllerType);
@@ -379,11 +406,18 @@ public class EndpointScanner : IEndpointScanner
         var processedTypes = new HashSet<Type>();
         var example = ReflectionHelper.GenerateExampleJson(bodyParam.ParameterType, schemas, processedTypes);
 
+        // Unwrap collection to element type for schema, so List<User> gives us the User schema
+        var schemaType = UnwrapCollectionType(bodyParam.ParameterType);
+
+        var bodyDescription = XmlDocumentationHelper.GetParameterDescription(method, bodyParam.Name ?? string.Empty)
+            ?? $"Request body containing {bodyParam.Name} data";
+
         return new ApiRequestBody
         {
             Type = typeName,
-            Description = $"Request body containing {bodyParam.Name} data",
-            Example = example
+            Description = bodyDescription,
+            Example = example,
+            Schema = ReflectionHelper.GenerateSchemaForType(schemaType)
         };
     }
 
@@ -436,11 +470,29 @@ public class EndpointScanner : IEndpointScanner
         var processedTypes = new HashSet<Type>();
         var example = ReflectionHelper.GenerateExampleJson(actualReturnType, schemas, processedTypes);
 
+        // Unwrap collection to element type for schema, so List<User> gives us the User schema
+        var schemaType = UnwrapCollectionType(actualReturnType);
+
         return new ApiResponse
         {
             Type = typeName,
-            Example = example
+            Example = example,
+            Description = XmlDocumentationHelper.GetReturnsDescription(method) ?? string.Empty,
+            Schema = ReflectionHelper.GenerateSchemaForType(schemaType)
         };
+    }
+
+    private static Type UnwrapCollectionType(Type type)
+    {
+        if (type.IsArray)
+            return type.GetElementType() ?? type;
+        if (type.IsGenericType && ReflectionHelper.IsEnumerableType(type))
+        {
+            var elementType = type.GetGenericArguments().FirstOrDefault();
+            if (elementType is not null)
+                return elementType;
+        }
+        return type;
     }
     
     private static List<HttpMethodAttribute> GetHttpMethodAttributes(MethodInfo method)
@@ -528,6 +580,7 @@ public class EndpointScanner : IEndpointScanner
                 headerName = fromHeaderAttr?.Name;
             }
             
+            var underlyingParamType = Nullable.GetUnderlyingType(param.ParameterType) ?? param.ParameterType;
             var apiParam = new ApiParameter
             {
                 Name = param.Name ?? "unknown",
@@ -537,7 +590,9 @@ public class EndpointScanner : IEndpointScanner
                 DefaultValue = param.HasDefaultValue ? param.DefaultValue : null,
                 Source = parameterSource,
                 IsFile = isFileParameter,
+                IsEnum = underlyingParamType.IsEnum,
                 HeaderName = headerName,
+                Description = XmlDocumentationHelper.GetParameterDescription(method, param.Name ?? "unknown") ?? string.Empty,
                 Constraints = ReflectionHelper.GetParameterConstraints(param)
             };
 
