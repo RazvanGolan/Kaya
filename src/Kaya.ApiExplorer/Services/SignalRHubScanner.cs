@@ -143,7 +143,7 @@ public class SignalRHubScanner : ISignalRHubScanner
             ObsoleteMessage = obsoleteMessage
         };
 
-        var methods = hubType.GetMethods(BindingFlags.Public | BindingFlags.Instance)
+        var methods = hubType.GetMethods(BindingFlags.Public | BindingFlags.Instance | BindingFlags.Static)
             .Where(m => m.DeclaringType == hubType && 
                        !m.IsSpecialName && 
                        !IsInheritedHubMethod(m));

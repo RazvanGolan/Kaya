@@ -8,15 +8,9 @@ MCP stdio server for invoking HTTP APIs and gRPC methods through Kaya explorers.
 dotnet tool install -g Kaya.McpServer
 ```
 
-This package exposes the command:
-
-```bash
-kaya-mcp --help
-```
-
 ## Configuration
 
-Environment variables:
+Use environment variables as the default configuration method.
 
 | Variable | Description | Default |
 |---|---|---|
@@ -25,21 +19,6 @@ Environment variables:
 | `KAYA_SIGNALR_DEBUG_ROUTE` | Route prefix for Kaya SignalR debug endpoints | `/kaya-signalr` |
 | `KAYA_MCP_CONFIG` | Optional path to JSON config file with URL defaults | not set |
 
-Command-line overrides:
-
-```bash
-kaya-mcp --api-url http://localhost:5121 --grpc-proxy-url http://localhost:5121
-```
-
-Config file format (`kaya.mcp.config.json`):
-
-```json
-{
-  "apiBaseUrl": "http://localhost:5121",
-  "grpcProxyBaseUrl": "http://localhost:5121"
-}
-```
-
 ## Host Setup (Copilot / Cursor / Claude)
 
 All MCP hosts need the same stdio command shape:
@@ -47,10 +26,11 @@ All MCP hosts need the same stdio command shape:
 ```json
 {
   "command": "kaya-mcp",
-  "args": [
-    "--config",
-    "/absolute/path/to/kaya.mcp.config.json"
-  ]
+  "env": {
+    "KAYA_API_BASE_URL": "http://localhost:5121",
+    "KAYA_GRPC_PROXY_BASE_URL": "http://localhost:5121",
+    "KAYA_SIGNALR_DEBUG_ROUTE": "/kaya-signalr"
+  }
 }
 ```
 
@@ -61,10 +41,11 @@ For hosts that use an `mcpServers` map (Cursor, Claude Desktop, and similar), us
   "mcpServers": {
     "kaya": {
       "command": "kaya-mcp",
-      "args": [
-        "--config",
-        "/absolute/path/to/kaya.mcp.config.json"
-      ]
+      "env": {
+        "KAYA_API_BASE_URL": "http://localhost:5121",
+        "KAYA_GRPC_PROXY_BASE_URL": "http://localhost:5121",
+        "KAYA_SIGNALR_DEBUG_ROUTE": "/kaya-signalr"
+      }
     }
   }
 }
@@ -93,16 +74,12 @@ Workspace `mcp.json` used in this repo (no external config file):
   "servers": {
     "kaya": {
       "type": "stdio",
-      "command": "dotnet",
-      "args": [
-        "run",
-        "--project",
-        "src/Kaya.McpServer",
-        "--"
-      ],
+      "command": "kaya-mcp",
+      "args": [],
       "env": {
         "KAYA_API_BASE_URL": "http://localhost:5121",
-        "KAYA_GRPC_PROXY_BASE_URL": "http://localhost:5121"
+        "KAYA_GRPC_PROXY_BASE_URL": "http://localhost:5121",
+        "KAYA_SIGNALR_DEBUG_ROUTE": "/kaya-signalr"
       }
     }
   }
@@ -118,10 +95,11 @@ Add this server in Cursor MCP settings:
   "mcpServers": {
     "kaya": {
       "command": "kaya-mcp",
-      "args": [
-        "--config",
-        "/absolute/path/to/kaya.mcp.config.json"
-      ]
+      "env": {
+        "KAYA_API_BASE_URL": "http://localhost:5121",
+        "KAYA_GRPC_PROXY_BASE_URL": "http://localhost:5121",
+        "KAYA_SIGNALR_DEBUG_ROUTE": "/kaya-signalr"
+      }
     }
   }
 }
@@ -132,7 +110,7 @@ Add this server in Cursor MCP settings:
 If your Claude Code version supports CLI registration:
 
 ```bash
-claude mcp add kaya -- kaya-mcp --config /absolute/path/to/kaya.mcp.config.json
+claude mcp add kaya --env KAYA_API_BASE_URL=http://localhost:5121 --env KAYA_GRPC_PROXY_BASE_URL=http://localhost:5121 -- kaya-mcp
 ```
 
 Otherwise add the same `mcpServers` JSON entry in Claude MCP configuration.
@@ -154,6 +132,24 @@ Otherwise add the same `mcpServers` JSON entry in Claude MCP configuration.
 - `signalr_disconnect`
 
 Kaya invocation requires the target application to have `Kaya.ApiExplorer` and `Kaya.GrpcExplorer` middleware configured and running.
+
+## Optional JSON Config File
+
+If you prefer file-based configuration instead of env vars:
+
+```json
+{
+  "apiBaseUrl": "http://localhost:5121",
+  "grpcProxyBaseUrl": "http://localhost:5121",
+  "signalrDebugRoute": "/kaya-signalr"
+}
+```
+
+Use it with:
+
+```bash
+kaya-mcp --config /absolute/path/to/kaya.mcp.config.json
+```
 
 ## SignalR Prerequisites (App Side)
 

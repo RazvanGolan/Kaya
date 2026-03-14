@@ -39,24 +39,9 @@ gRPC service explorer that uses Server Reflection to discover and test gRPC serv
 MCP stdio server that exposes Kaya invocation capabilities to MCP hosts (Copilot, Cursor, Claude).
 
 **Features:**
-- MCP Tool Surface - HTTP and gRPC invocation tools exposed via MCP
+- MCP Tool Surface - HTTP, SignalR and gRPC invocation tools exposed via MCP
 - Host Integration - Works with MCP-capable clients over stdio transport
 - Flexible Configuration - Supports command args, env vars, and JSON config file
-
-**Quickstart:**
-- Install: `dotnet tool install -g Kaya.McpServer`
-- Verify: `kaya-mcp --help`
-- MCP host command:
-
-```json
-{
-	"command": "kaya-mcp",
-	"args": [
-		"--config",
-		"/absolute/path/to/kaya.mcp.config.json"
-	]
-}
-```
 
 📖 [Full Documentation](src/Kaya.McpServer/README.md)
 

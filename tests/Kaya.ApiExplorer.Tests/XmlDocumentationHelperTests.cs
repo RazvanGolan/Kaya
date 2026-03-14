@@ -233,7 +233,7 @@ public class XmlDocumentationHelperTests
     /// Method with a generic parameter for XML member-name resolution.
     /// </summary>
     /// <param name="items">A list of items.</param>
-    private static void MethodWithGenericParam(List<string> items) { }
+    private void MethodWithGenericParam(List<string> items) { }
 
     [Fact]
     public void GetMethodSummary_ReturnsDocumentation_ForMethodWithGenericParam()
