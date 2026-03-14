@@ -1,3 +1,4 @@
+using System.Reflection;
 using Kaya.ApiExplorer.Helpers;
 using Microsoft.AspNetCore.Mvc;
 
@@ -30,7 +31,7 @@ public class XmlDocumentationHelperTests
     /// </summary>
     /// <param name="value">A test parameter</param>
     /// <returns>Returns the value multiplied by 2</returns>
-    public int SampleMethod(int value)
+    public static int SampleMethod(int value)
     {
         return value * 2;
     }
@@ -187,24 +188,24 @@ public class XmlDocumentationHelperTests
     // -------------------------------------------------------------------------
 
     /// <summary>Method without a returns tag.</summary>
-    public void MethodWithNoReturnsTag() { }
+    private static void MethodWithNoReturnsTag() { }
 
     [Fact]
     public void GetReturnsDescription_ReturnsNull_WhenMethodHasNoReturnsTag()
     {
-        var method = typeof(XmlDocumentationHelperTests).GetMethod(nameof(MethodWithNoReturnsTag))!;
+        var method = typeof(XmlDocumentationHelperTests).GetMethod(nameof(MethodWithNoReturnsTag), BindingFlags.NonPublic | BindingFlags.Instance)!;
 
         var result = XmlDocumentationHelper.GetReturnsDescription(method);
 
         Assert.Null(result);
     }
 
-    public void MethodWithNoXmlDoc(int x) { }
+    private static void MethodWithNoXmlDoc(int x) { }
 
     [Fact]
     public void GetParameterDescription_ReturnsNull_WhenMethodHasNoXmlDoc()
     {
-        var method = typeof(XmlDocumentationHelperTests).GetMethod(nameof(MethodWithNoXmlDoc))!;
+        var method = typeof(XmlDocumentationHelperTests).GetMethod(nameof(MethodWithNoXmlDoc), BindingFlags.NonPublic | BindingFlags.Instance)!;
 
         var result = XmlDocumentationHelper.GetParameterDescription(method, "x");
 
@@ -212,12 +213,12 @@ public class XmlDocumentationHelperTests
     }
 
     /// <summary>Method with only a summary, no param tags.</summary>
-    public void MethodWithSummaryButNoParams(int value) { }
+    private static void MethodWithSummaryButNoParams(int value) { }
 
     [Fact]
     public void GetParameterDescription_ReturnsNull_WhenParamNotDocumented()
     {
-        var method = typeof(XmlDocumentationHelperTests).GetMethod(nameof(MethodWithSummaryButNoParams))!;
+        var method = typeof(XmlDocumentationHelperTests).GetMethod(nameof(MethodWithSummaryButNoParams), BindingFlags.NonPublic | BindingFlags.Instance)!;
 
         var result = XmlDocumentationHelper.GetParameterDescription(method, "value");
 
@@ -232,12 +233,12 @@ public class XmlDocumentationHelperTests
     /// Method with a generic parameter for XML member-name resolution.
     /// </summary>
     /// <param name="items">A list of items.</param>
-    public void MethodWithGenericParam(List<string> items) { }
+    private void MethodWithGenericParam(List<string> items) { }
 
     [Fact]
     public void GetMethodSummary_ReturnsDocumentation_ForMethodWithGenericParam()
     {
-        var method = typeof(XmlDocumentationHelperTests).GetMethod(nameof(MethodWithGenericParam))!;
+        var method = typeof(XmlDocumentationHelperTests).GetMethod(nameof(MethodWithGenericParam), BindingFlags.NonPublic | BindingFlags.Instance)!;
 
         var summary = XmlDocumentationHelper.GetMethodSummary(method);
 
@@ -248,7 +249,7 @@ public class XmlDocumentationHelperTests
     [Fact]
     public void GetParameterDescription_ReturnsDocumentation_ForGenericParam()
     {
-        var method = typeof(XmlDocumentationHelperTests).GetMethod(nameof(MethodWithGenericParam))!;
+        var method = typeof(XmlDocumentationHelperTests).GetMethod(nameof(MethodWithGenericParam), BindingFlags.NonPublic | BindingFlags.Instance)!;
 
         var desc = XmlDocumentationHelper.GetParameterDescription(method, "items");
 

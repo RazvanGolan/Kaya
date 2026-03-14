@@ -394,13 +394,13 @@ public class TestHub : Hub
         await Clients.All.SendAsync("ReceiveMessage", message);
     }
 
-    public async Task<HubUser> GetUser(int id)
+    public static async Task<HubUser> GetUser(int id)
     {
         await Task.CompletedTask;
         return new HubUser { Id = id, Name = "Test User", Email = "test@example.com" };
     }
 
-    public async Task<HubUser> GetUserAsync(int id)
+    public static async Task<HubUser> GetUserAsync(int id)
     {
         await Task.Delay(10);
         return new HubUser { Id = id, Name = "Test User", Email = "test@example.com" };
@@ -428,7 +428,7 @@ public class TestHub : Hub
         await Clients.All.SendAsync("Data", required, optional);
     }
 
-    public ValueTask<int> GetCountValueTask()
+    public static ValueTask<int> GetCountValueTask()
     {
         return new ValueTask<int>(42);
     }
@@ -452,7 +452,7 @@ public class AuthorizedTestHub : Hub
         await Clients.All.SendAsync("SecureMessage", message);
     }
 
-    public Task<string> GetSecureData()
+    public static Task<string> GetSecureData()
     {
         return Task.FromResult("Secure data");
     }

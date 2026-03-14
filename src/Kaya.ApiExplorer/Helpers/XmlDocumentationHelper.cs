@@ -28,6 +28,8 @@ public static class XmlDocumentationHelper
     /// </summary>
     public static string? GetMethodSummary(MethodInfo method)
     {
+        if (method is null) return null;
+
         var xmlDoc = GetXmlDocumentation(method.DeclaringType?.Assembly);
         if (xmlDoc is null) return null;
 
@@ -40,6 +42,8 @@ public static class XmlDocumentationHelper
     /// </summary>
     public static string? GetPropertySummary(PropertyInfo property)
     {
+        if (property is null) return null;
+
         var xmlDoc = GetXmlDocumentation(property.DeclaringType?.Assembly);
         if (xmlDoc is null) return null;
 
@@ -52,6 +56,8 @@ public static class XmlDocumentationHelper
     /// </summary>
     public static string? GetParameterDescription(MethodInfo method, string parameterName)
     {
+        if (method is null) return null;
+
         var xmlDoc = GetXmlDocumentation(method.DeclaringType?.Assembly);
         if (xmlDoc is null) return null;
 
@@ -72,6 +78,8 @@ public static class XmlDocumentationHelper
     /// </summary>
     public static string? GetReturnsDescription(MethodInfo method)
     {
+        if (method is null) return null;
+
         var xmlDoc = GetXmlDocumentation(method.DeclaringType?.Assembly);
         if (xmlDoc is null) return null;
 
@@ -91,6 +99,8 @@ public static class XmlDocumentationHelper
     /// </summary>
     public static string? GetResponseDescription(MethodInfo method, int statusCode)
     {
+        if (method is null) return null;
+
         var xmlDoc = GetXmlDocumentation(method.DeclaringType?.Assembly);
         if (xmlDoc is null) return null;
 

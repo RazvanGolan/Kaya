@@ -4,9 +4,11 @@
     <Project Path="src/Kaya.ApiExplorer/Kaya.ApiExplorer.csproj" />
     <Project Path="src/Kaya.GrpcExplorer/Kaya.GrpcExplorer.csproj" />
     <Project Path="src/Demo.GrpcService/Demo.GrpcService.csproj" />
+    <Project Path="src/Kaya.McpServer/Kaya.McpServer.csproj" />
   </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/Kaya.ApiExplorer.Tests/Kaya.ApiExplorer.Tests.csproj" />
     <Project Path="tests/Kaya.GrpcExplorer.Tests/Kaya.GrpcExplorer.Tests.csproj" />
+    <Project Path="tests/Kaya.McpServer.Tests/Kaya.McpServer.Tests.csproj" />
   </Folder>
 </Solution>

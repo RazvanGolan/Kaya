@@ -1,0 +1,38 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFrameworks>net8.0;net9.0;net10.0</TargetFrameworks>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <PackAsTool>true</PackAsTool>
+    <ToolCommandName>kaya-mcp</ToolCommandName>
+    <PackageId>Kaya.McpServer</PackageId>
+    <Version>1.0.0</Version>
+    <Authors>RazvanGolan</Authors>
+    <Company>RazvanGolan</Company>
+    <Product>Kaya MCP Server</Product>
+    <Description>MCP server for invoking HTTP APIs, gRPC methods, and SignalR hubs in applications using Kaya explorers.</Description>
+    <PackageTags>mcp;tool;dotnet-tool;http;grpc;signalr;api;copilot;cursor;claude</PackageTags>
+    <RepositoryUrl>https://github.com/RazvanGolan/Kaya</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
+    <PackageProjectUrl>https://github.com/RazvanGolan/Kaya</PackageProjectUrl>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <PackageIcon>icon.png</PackageIcon>
+    <PackageReleaseNotes>Version 1.0.0: Initial MCP server release with HTTP, gRPC (unary and streaming), and SignalR invocation tools for MCP hosts such as Copilot, Cursor, and Claude.</PackageReleaseNotes>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.AspNetCore.SignalR.Client" Version="9.0.8" />
+    <PackageReference Include="Microsoft.Extensions.Hosting" Version="10.0.0" />
+    <PackageReference Include="Microsoft.Extensions.Http" Version="10.0.0" />
+    <PackageReference Include="ModelContextProtocol" Version="1.1.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Include="README.md" Pack="true" PackagePath="/" />
+    <None Include="UI/icon.png" Pack="true" PackagePath="/" />
+  </ItemGroup>
+
+</Project>
