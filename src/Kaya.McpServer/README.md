@@ -69,6 +69,73 @@ For hosts that use an `mcpServers` map (Cursor, Claude Desktop, and similar), us
 }
 ```
 
+## Install In VS Code GitHub Copilot
+
+1. Install the tool globally (when published):
+
+```bash
+dotnet tool install -g Kaya.McpServer
+```
+
+2. If not yet published, use dotnet project execution in workspace `mcp.json`.
+
+3. In VS Code, use workspace MCP config at `.vscode/mcp.json` (included in this repo), or run `MCP: Add Server`.
+
+4. Reload VS Code window and trust/start the `kaya` server when prompted.
+
+5. In chat, open tools and verify `kaya` tools are available.
+
+Workspace `mcp.json` used in this repo (no external config file):
+
+```json
+{
+  "servers": {
+    "kaya": {
+      "type": "stdio",
+      "command": "dotnet",
+      "args": [
+        "run",
+        "--project",
+        "src/Kaya.McpServer",
+        "--"
+      ],
+      "env": {
+        "KAYA_API_BASE_URL": "http://localhost:5121",
+        "KAYA_GRPC_PROXY_BASE_URL": "http://localhost:5121"
+      }
+    }
+  }
+}
+```
+
+## Install In Cursor
+
+Add this server in Cursor MCP settings:
+
+```json
+{
+  "mcpServers": {
+    "kaya": {
+      "command": "kaya-mcp",
+      "args": [
+        "--config",
+        "/absolute/path/to/kaya.mcp.config.json"
+      ]
+    }
+  }
+}
+```
+
+## Install In Claude Code
+
+If your Claude Code version supports CLI registration:
+
+```bash
+claude mcp add kaya -- kaya-mcp --config /absolute/path/to/kaya.mcp.config.json
+```
+
+Otherwise add the same `mcpServers` JSON entry in Claude MCP configuration.
+
 ## Available MCP Tools
 
 - `http_invoke`
