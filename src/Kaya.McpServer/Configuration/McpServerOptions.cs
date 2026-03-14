@@ -1,4 +1,5 @@
 using System.Text.Json;
+using System.Net.Http;
 
 namespace Kaya.McpServer.Configuration;
 
@@ -6,13 +7,11 @@ public sealed class McpServerOptions
 {
     public string ApiBaseUrl { get; }
     public string GrpcProxyBaseUrl { get; }
-    public string SignalRBaseUrl { get; }
     public string SignalRDebugRoutePrefix { get; }
 
     public McpServerOptions(
         string? apiBaseUrl = null,
         string? grpcProxyBaseUrl = null,
-        string? signalRBaseUrl = null,
         string? signalRDebugRoutePrefix = null)
     {
         ApiBaseUrl = NormalizeBaseUrl(apiBaseUrl
@@ -21,10 +20,6 @@ public sealed class McpServerOptions
 
         GrpcProxyBaseUrl = NormalizeBaseUrl(grpcProxyBaseUrl
             ?? Environment.GetEnvironmentVariable("KAYA_GRPC_PROXY_BASE_URL")
-            ?? "http://localhost:5000");
-
-        SignalRBaseUrl = NormalizeBaseUrl(signalRBaseUrl
-            ?? Environment.GetEnvironmentVariable("KAYA_SIGNALR_BASE_URL")
             ?? ApiBaseUrl);
 
         SignalRDebugRoutePrefix = NormalizePath(signalRDebugRoutePrefix
@@ -60,13 +55,10 @@ public sealed class McpServerOptions
         var grpcProxyBaseUrl = TryGetArgValue(args, "--grpc-proxy-url")
                                ?? fileConfig?.GrpcProxyBaseUrl;
 
-        var signalRBaseUrl = TryGetArgValue(args, "--signalr-url")
-                             ?? fileConfig?.SignalRBaseUrl;
-
         var signalRDebugRoutePrefix = TryGetArgValue(args, "--signalr-debug-route")
                                       ?? fileConfig?.SignalRDebugRoutePrefix;
 
-        return new McpServerOptions(apiBaseUrl, grpcProxyBaseUrl, signalRBaseUrl, signalRDebugRoutePrefix);
+        return new McpServerOptions(apiBaseUrl, grpcProxyBaseUrl, signalRDebugRoutePrefix);
     }
 
     private static string? TryGetArgValue(IReadOnlyList<string> args, string key)
@@ -123,7 +115,6 @@ public sealed class McpServerOptions
     {
         public string? ApiBaseUrl { get; init; }
         public string? GrpcProxyBaseUrl { get; init; }
-        public string? SignalRBaseUrl { get; init; }
         public string? SignalRDebugRoutePrefix { get; init; }
     }
 }

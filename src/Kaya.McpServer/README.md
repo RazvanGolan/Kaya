@@ -1,4 +1,4 @@
-# Kaya.McpServer
+# <img src="UI/icon.svg" width="28" height="28" align="center" /> Kaya.McpServer
 
 MCP stdio server for invoking HTTP APIs and gRPC methods through Kaya explorers.
 
@@ -22,7 +22,6 @@ Environment variables:
 |---|---|---|
 | `KAYA_API_BASE_URL` | Base URL for HTTP invocations | `http://localhost:5000` |
 | `KAYA_GRPC_PROXY_BASE_URL` | Base URL for Kaya gRPC proxy endpoints | `http://localhost:5000` |
-| `KAYA_SIGNALR_BASE_URL` | Base URL for SignalR hub connections | value of `KAYA_API_BASE_URL` |
 | `KAYA_SIGNALR_DEBUG_ROUTE` | Route prefix for Kaya SignalR debug endpoints | `/kaya-signalr` |
 | `KAYA_MCP_CONFIG` | Optional path to JSON config file with URL defaults | not set |
 

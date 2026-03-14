@@ -194,7 +194,7 @@ public sealed class InvocationTools(
             var parsedHeaders = ParseJsonMap(headers);
             return await SignalRInvocationService.ConnectAsync(
                 hubPath,
-                signalRBaseUrl ?? options.SignalRBaseUrl,
+                signalRBaseUrl ?? options.ApiBaseUrl,
                 parsedHeaders,
                 sessionId);
         }

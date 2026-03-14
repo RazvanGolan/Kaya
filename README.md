@@ -35,7 +35,7 @@ gRPC service explorer that uses Server Reflection to discover and test gRPC serv
 
 📖 [Full Documentation](src/Kaya.GrpcExplorer/README.md)
 
-### Kaya.McpServer
+### <img src="src/Kaya.McpServer/UI/icon.svg" width="28" height="28" align="center" /> Kaya.McpServer
 MCP stdio server that exposes Kaya invocation capabilities to MCP hosts (Copilot, Cursor, Claude).
 
 **Features:**
