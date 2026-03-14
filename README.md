@@ -2,6 +2,7 @@
 
 [![NuGet](https://img.shields.io/nuget/v/Kaya.ApiExplorer?style=flat&label=Kaya.ApiExplorer&logo=nuget)](https://www.nuget.org/packages/Kaya.ApiExplorer)
 [![NuGet](https://img.shields.io/nuget/v/Kaya.GrpcExplorer?style=flat&label=Kaya.GrpcExplorer&logo=nuget)](https://www.nuget.org/packages/Kaya.GrpcExplorer)
+[![NuGet](https://img.shields.io/nuget/v/Kaya.McpServer?style=flat&label=Kaya.McpServer&logo=nuget)](https://www.nuget.org/packages/Kaya.McpServer)
 
 A collection of lightweight development tools for .NET applications that provide automatic discovery and interactive testing capabilities.
 
@@ -33,6 +34,31 @@ gRPC service explorer that uses Server Reflection to discover and test gRPC serv
 - Streaming Support - View streaming responses with pagination for large message volumes
 
 📖 [Full Documentation](src/Kaya.GrpcExplorer/README.md)
+
+### Kaya.McpServer
+MCP stdio server that exposes Kaya invocation capabilities to MCP hosts (Copilot, Cursor, Claude).
+
+**Features:**
+- MCP Tool Surface - HTTP and gRPC invocation tools exposed via MCP
+- Host Integration - Works with MCP-capable clients over stdio transport
+- Flexible Configuration - Supports command args, env vars, and JSON config file
+
+**Quickstart:**
+- Install: `dotnet tool install -g Kaya.McpServer`
+- Verify: `kaya-mcp --help`
+- MCP host command:
+
+```json
+{
+	"command": "kaya-mcp",
+	"args": [
+		"--config",
+		"/absolute/path/to/kaya.mcp.config.json"
+	]
+}
+```
+
+📖 [Full Documentation](src/Kaya.McpServer/README.md)
 
 ## License
 

@@ -470,12 +470,12 @@ public class ReflectionHelperTests
     // GetParameterConstraints
     // -------------------------------------------------------------------------
 
-    public static void HelperMethodWithPlainParam(string value) { }
+    private static void HelperMethodWithPlainParam(string value) { }
 
     [Fact]
     public void GetParameterConstraints_ReturnsNull_WhenNoAttributes()
     {
-        var method = typeof(ReflectionHelperTests).GetMethod(nameof(HelperMethodWithPlainParam))!;
+        var method = typeof(ReflectionHelperTests).GetMethod(nameof(HelperMethodWithPlainParam), BindingFlags.NonPublic | BindingFlags.Static)!;
         var param = method.GetParameters()[0];
         Assert.Null(ReflectionHelper.GetParameterConstraints(param));
     }
