@@ -36,10 +36,10 @@ gRPC service explorer that uses Server Reflection to discover and test gRPC serv
 📖 [Full Documentation](src/Kaya.GrpcExplorer/README.md)
 
 ### <img src="src/Kaya.McpServer/UI/icon.svg" width="28" height="28" align="center" /> Kaya.McpServer
-MCP stdio server that exposes Kaya invocation capabilities to MCP hosts (Copilot, Cursor, Claude).
+MCP stdio server for invoking HTTP APIs, gRPC methods, and SignalR hubs from MCP hosts (Copilot, Cursor, Claude).
 
 **Features:**
-- MCP Tool Surface - HTTP, SignalR and gRPC invocation tools exposed via MCP
+- MCP Tool Surface - HTTP API, gRPC method, and SignalR hub invocation tools exposed via MCP
 - Host Integration - Works with MCP-capable clients over stdio transport
 - Flexible Configuration - Supports command args, env vars, and JSON config file
 

@@ -1,6 +1,12 @@
-# <img src="UI/icon.svg" width="28" height="28" align="center" /> Kaya.McpServer
+# Kaya.McpServer
 
-MCP stdio server for invoking HTTP APIs and gRPC methods through Kaya explorers.
+MCP stdio server for invoking HTTP APIs, gRPC methods, and SignalR hubs through Kaya explorers.
+
+Kaya.McpServer relies on the following packages in the target application:
+- [Kaya.ApiExplorer documentation](../Kaya.ApiExplorer/README.md) ([NuGet](https://www.nuget.org/packages/Kaya.ApiExplorer))
+- [Kaya.GrpcExplorer documentation](../Kaya.GrpcExplorer/README.md) ([NuGet](https://www.nuget.org/packages/Kaya.GrpcExplorer))
+
+Without at least one of these packages configured and running, Kaya.McpServer cannot invoke HTTP/gRPC/SignalR operations.
 
 ## Install
 
@@ -131,7 +137,6 @@ Otherwise add the same `mcpServers` JSON entry in Claude MCP configuration.
 - `signalr_logs`
 - `signalr_disconnect`
 
-Kaya invocation requires the target application to have `Kaya.ApiExplorer` and `Kaya.GrpcExplorer` middleware configured and running.
 
 ## Optional JSON Config File
 
