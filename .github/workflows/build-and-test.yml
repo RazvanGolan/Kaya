@@ -25,11 +25,11 @@ jobs:
         run: dotnet restore
 
       - name: Build
-        run: dotnet build --no-restore --configuration Release
+        run: dotnet build Kaya.slnx --no-restore --configuration Release
 
       - name: Run tests with coverage
         run: |
-          dotnet test --no-build --configuration Release \
+          dotnet test Kaya.slnx --no-build --configuration Release \
             --collect "XPlat Code Coverage" \
             --results-directory ./coverage \
             -- DataCollectionRunSettings.DataCollectors.DataCollector.Configuration.Format=cobertura

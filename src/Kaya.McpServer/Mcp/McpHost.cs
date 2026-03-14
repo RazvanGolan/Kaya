@@ -1,3 +1,4 @@
+using System.Diagnostics.CodeAnalysis;
 using System.Reflection;
 using Kaya.McpServer.Configuration;
 using Kaya.McpServer.Core;
@@ -7,6 +8,7 @@ using Microsoft.Extensions.Logging;
 
 namespace Kaya.McpServer.Mcp;
 
+[ExcludeFromCodeCoverage(Justification = "Bootstraps a long-running MCP stdio host and transport wiring; meaningful validation requires process-level integration tests, not unit tests.")]
 public static class McpHost
 {
     public static async Task RunAsync(string[] args)

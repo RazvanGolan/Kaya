@@ -1,5 +1,8 @@
+using System.Diagnostics.CodeAnalysis;
+
 namespace Kaya.McpServer.Core;
 
+[ExcludeFromCodeCoverage(Justification = "Terminal rendering with ANSI colors and timing-based animation depends on TTY capabilities and is not deterministic for isolated unit tests.")]
 internal static class CliBranding
 {
     private static readonly string[] Banner =

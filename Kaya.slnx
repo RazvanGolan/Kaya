@@ -9,5 +9,6 @@
   <Folder Name="/tests/">
     <Project Path="tests/Kaya.ApiExplorer.Tests/Kaya.ApiExplorer.Tests.csproj" />
     <Project Path="tests/Kaya.GrpcExplorer.Tests/Kaya.GrpcExplorer.Tests.csproj" />
+    <Project Path="tests/Kaya.McpServer.Tests/Kaya.McpServer.Tests.csproj" />
   </Folder>
 </Solution>
