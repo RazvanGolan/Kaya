@@ -89,7 +89,7 @@ public class GrpcExplorerMiddleware(RequestDelegate next, KayaGrpcExplorerOption
     /// <summary>
     /// Gets services from a gRPC server
     /// </summary>
-    private async Task GetServicesAsync(HttpContext context)
+    private static async Task GetServicesAsync(HttpContext context)
     {
         try
         {

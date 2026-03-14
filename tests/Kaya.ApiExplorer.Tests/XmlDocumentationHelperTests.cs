@@ -31,7 +31,7 @@ public class XmlDocumentationHelperTests
     /// </summary>
     /// <param name="value">A test parameter</param>
     /// <returns>Returns the value multiplied by 2</returns>
-    public int SampleMethod(int value)
+    public static int SampleMethod(int value)
     {
         return value * 2;
     }
@@ -188,7 +188,7 @@ public class XmlDocumentationHelperTests
     // -------------------------------------------------------------------------
 
     /// <summary>Method without a returns tag.</summary>
-    private void MethodWithNoReturnsTag() { }
+    private static void MethodWithNoReturnsTag() { }
 
     [Fact]
     public void GetReturnsDescription_ReturnsNull_WhenMethodHasNoReturnsTag()
@@ -200,7 +200,7 @@ public class XmlDocumentationHelperTests
         Assert.Null(result);
     }
 
-    private void MethodWithNoXmlDoc(int x) { }
+    private static void MethodWithNoXmlDoc(int x) { }
 
     [Fact]
     public void GetParameterDescription_ReturnsNull_WhenMethodHasNoXmlDoc()
@@ -213,7 +213,7 @@ public class XmlDocumentationHelperTests
     }
 
     /// <summary>Method with only a summary, no param tags.</summary>
-    private void MethodWithSummaryButNoParams(int value) { }
+    private static void MethodWithSummaryButNoParams(int value) { }
 
     [Fact]
     public void GetParameterDescription_ReturnsNull_WhenParamNotDocumented()
@@ -233,7 +233,7 @@ public class XmlDocumentationHelperTests
     /// Method with a generic parameter for XML member-name resolution.
     /// </summary>
     /// <param name="items">A list of items.</param>
-    private void MethodWithGenericParam(List<string> items) { }
+    private static void MethodWithGenericParam(List<string> items) { }
 
     [Fact]
     public void GetMethodSummary_ReturnsDocumentation_ForMethodWithGenericParam()

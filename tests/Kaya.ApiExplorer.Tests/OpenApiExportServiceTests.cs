@@ -631,7 +631,7 @@ public class OpenApiExportServiceTests
     // Schema type building for various friendly type names
     // -------------------------------------------------------------------------
 
-    private Dictionary<string, JsonElement> GetSchemas(object spec)
+    private static Dictionary<string, JsonElement> GetSchemas(object spec)
     {
         var json = JsonSerializer.Serialize(spec, new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase });
         using var doc = JsonDocument.Parse(json);

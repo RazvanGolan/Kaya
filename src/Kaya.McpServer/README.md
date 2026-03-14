@@ -22,6 +22,8 @@ Environment variables:
 |---|---|---|
 | `KAYA_API_BASE_URL` | Base URL for HTTP invocations | `http://localhost:5000` |
 | `KAYA_GRPC_PROXY_BASE_URL` | Base URL for Kaya gRPC proxy endpoints | `http://localhost:5000` |
+| `KAYA_SIGNALR_BASE_URL` | Base URL for SignalR hub connections | value of `KAYA_API_BASE_URL` |
+| `KAYA_SIGNALR_DEBUG_ROUTE` | Route prefix for Kaya SignalR debug endpoints | `/kaya-signalr` |
 | `KAYA_MCP_CONFIG` | Optional path to JSON config file with URL defaults | not set |
 
 Command-line overrides:
@@ -144,5 +146,41 @@ Otherwise add the same `mcpServers` JSON entry in Claude MCP configuration.
 - `grpc_stream_send`
 - `grpc_stream_events`
 - `grpc_stream_end`
+- `signalr_hubs`
+- `signalr_connect`
+- `signalr_subscribe`
+- `signalr_invoke`
+- `signalr_events`
+- `signalr_logs`
+- `signalr_disconnect`
 
 Kaya invocation requires the target application to have `Kaya.ApiExplorer` and `Kaya.GrpcExplorer` middleware configured and running.
+
+## SignalR Prerequisites (App Side)
+
+To make SignalR MCP tools work, your application needs:
+
+1. SignalR enabled and hubs mapped:
+
+```csharp
+builder.Services.AddSignalR();
+app.MapHub<NotificationHub>("/hubs/notification");
+app.MapHub<ChatHub>("/chat");
+```
+
+2. Kaya SignalR debug enabled if you want hub discovery (`signalr_hubs`):
+
+```csharp
+builder.Services.AddKayaApiExplorer(options =>
+{
+  options.SignalRDebug.Enabled = true;
+  options.SignalRDebug.RoutePrefix = "/kaya-signalr";
+});
+
+app.UseKayaApiExplorer();
+```
+
+3. CORS and auth configured for your client scenario.
+
+- For local development and cross-origin clients, allow the required origins/headers.
+- For authenticated hubs, pass auth headers in `signalr_connect` (`headers` JSON object), for example Bearer token.

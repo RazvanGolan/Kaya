@@ -6,8 +6,14 @@ public sealed class McpServerOptions
 {
     public string ApiBaseUrl { get; }
     public string GrpcProxyBaseUrl { get; }
+    public string SignalRBaseUrl { get; }
+    public string SignalRDebugRoutePrefix { get; }
 
-    public McpServerOptions(string? apiBaseUrl = null, string? grpcProxyBaseUrl = null)
+    public McpServerOptions(
+        string? apiBaseUrl = null,
+        string? grpcProxyBaseUrl = null,
+        string? signalRBaseUrl = null,
+        string? signalRDebugRoutePrefix = null)
     {
         ApiBaseUrl = NormalizeBaseUrl(apiBaseUrl
             ?? Environment.GetEnvironmentVariable("KAYA_API_BASE_URL")
@@ -16,6 +22,14 @@ public sealed class McpServerOptions
         GrpcProxyBaseUrl = NormalizeBaseUrl(grpcProxyBaseUrl
             ?? Environment.GetEnvironmentVariable("KAYA_GRPC_PROXY_BASE_URL")
             ?? "http://localhost:5000");
+
+        SignalRBaseUrl = NormalizeBaseUrl(signalRBaseUrl
+            ?? Environment.GetEnvironmentVariable("KAYA_SIGNALR_BASE_URL")
+            ?? ApiBaseUrl);
+
+        SignalRDebugRoutePrefix = NormalizePath(signalRDebugRoutePrefix
+            ?? Environment.GetEnvironmentVariable("KAYA_SIGNALR_DEBUG_ROUTE")
+            ?? "/kaya-signalr");
     }
 
     public static McpServerOptions FromArgsAndEnv(string[] args)
@@ -46,7 +60,13 @@ public sealed class McpServerOptions
         var grpcProxyBaseUrl = TryGetArgValue(args, "--grpc-proxy-url")
                                ?? fileConfig?.GrpcProxyBaseUrl;
 
-        return new McpServerOptions(apiBaseUrl, grpcProxyBaseUrl);
+        var signalRBaseUrl = TryGetArgValue(args, "--signalr-url")
+                             ?? fileConfig?.SignalRBaseUrl;
+
+        var signalRDebugRoutePrefix = TryGetArgValue(args, "--signalr-debug-route")
+                                      ?? fileConfig?.SignalRDebugRoutePrefix;
+
+        return new McpServerOptions(apiBaseUrl, grpcProxyBaseUrl, signalRBaseUrl, signalRDebugRoutePrefix);
     }
 
     private static string? TryGetArgValue(IReadOnlyList<string> args, string key)
@@ -83,9 +103,27 @@ public sealed class McpServerOptions
         return baseUrl.Trim().TrimEnd('/');
     }
 
+    public static string NormalizePath(string path)
+    {
+        if (string.IsNullOrWhiteSpace(path))
+        {
+            return "/";
+        }
+
+        var normalized = path.Trim();
+        if (!normalized.StartsWith('/'))
+        {
+            normalized = "/" + normalized;
+        }
+
+        return normalized.TrimEnd('/');
+    }
+
     private sealed class McpServerFileConfig
     {
         public string? ApiBaseUrl { get; init; }
         public string? GrpcProxyBaseUrl { get; init; }
+        public string? SignalRBaseUrl { get; init; }
+        public string? SignalRDebugRoutePrefix { get; init; }
     }
 }

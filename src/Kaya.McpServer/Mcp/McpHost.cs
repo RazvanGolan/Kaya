@@ -22,6 +22,7 @@ public static class McpHost
         builder.Services.AddHttpClient();
         builder.Services.AddSingleton<HttpInvocationService>();
         builder.Services.AddSingleton<GrpcInvocationService>();
+        builder.Services.AddSingleton<SignalRInvocationService>();
 
         builder.Services
             .AddMcpServer()
