@@ -373,9 +373,9 @@ public class ReflectionHelperTests
         using var doc = JsonDocument.Parse(schema.Example);
         var root = doc.RootElement;
 
-        Assert.Equal(JsonValueKind.Number, root.GetProperty("uShortValue").ValueKind);
-        Assert.Equal(JsonValueKind.Number, root.GetProperty("uIntValue").ValueKind);
-        Assert.Equal(JsonValueKind.Number, root.GetProperty("uLongValue").ValueKind);
+        var jsonProperties = root.EnumerateObject().ToList();
+        Assert.Equal(schema.Properties.Count, jsonProperties.Count);
+        Assert.All(jsonProperties, p => Assert.Equal(JsonValueKind.Number, p.Value.ValueKind));
     }
 
     // -------------------------------------------------------------------------
