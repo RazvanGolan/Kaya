@@ -786,6 +786,18 @@ body {
   word-break: break-all;
   position: relative;
   transition: all 0.3s ease;
+  user-select: text;
+  -webkit-user-select: text;
+  -moz-user-select: text;
+  -ms-user-select: text;
+}
+
+.code-block pre,
+.code-block code {
+  user-select: text;
+  -webkit-user-select: text;
+  -moz-user-select: text;
+  -ms-user-select: text;
 }
 
 .copy-btn {
@@ -1187,6 +1199,10 @@ body {
   overflow-x: auto;
   overflow-y: auto;
   transition: all 0.3s ease;
+  user-select: text;
+  -webkit-user-select: text;
+  -moz-user-select: text;
+  -ms-user-select: text;
 }
 
 .form-group {
@@ -1530,6 +1546,10 @@ body {
   overflow-x: auto;
   margin: 0;
   transition: all 0.3s ease;
+  user-select: text;
+  -webkit-user-select: text;
+  -moz-user-select: text;
+  -ms-user-select: text;
 }
 
 .response-body-pre {
@@ -1546,6 +1566,10 @@ body {
   overflow-x: auto;
   overflow-y: auto;
   transition: all 0.3s ease;
+  user-select: text;
+  -webkit-user-select: text;
+  -moz-user-select: text;
+  -ms-user-select: text;
 }
 
 .export-tabs {
@@ -1616,6 +1640,10 @@ body {
   border: none;
   resize: none;
   transition: all 0.3s ease;
+  user-select: text;
+  -webkit-user-select: text;
+  -moz-user-select: text;
+  -ms-user-select: text;
 }
 
 .export-code-block:focus {
