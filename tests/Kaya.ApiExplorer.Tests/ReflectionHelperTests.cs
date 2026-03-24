@@ -1,4 +1,5 @@
 using System.Reflection;
+using System.Text.Json;
 using Kaya.ApiExplorer.Helpers;
 using Kaya.ApiExplorer.Models;
 
@@ -294,6 +295,21 @@ public class ReflectionHelperTests
         Assert.Equal("0", result);
     }
 
+    [Theory]
+    [InlineData(typeof(short), "123")]
+    [InlineData(typeof(ushort), "123")]
+    [InlineData(typeof(int), "123")]
+    [InlineData(typeof(uint), "123")]
+    [InlineData(typeof(long), "123")]
+    [InlineData(typeof(ulong), "123")]
+    [InlineData(typeof(sbyte), "0")]
+    [InlineData(typeof(ushort?), "123")]
+    public void GenerateExampleJson_ShouldHandleIntegralNumericTypes(Type type, string expected)
+    {
+        var result = ReflectionHelper.GenerateExampleJson(type, new(), new());
+        Assert.Equal(expected, result);
+    }
+
     [Fact]
     public void GenerateExampleJson_ShouldHandleEnum()
     {
@@ -338,6 +354,28 @@ public class ReflectionHelperTests
     {
         public string Name { get; set; } = string.Empty;
         public PostalAddress Address { get; set; } = new();
+    }
+
+    public class UnsignedNumericModel
+    {
+        public ushort UShortValue { get; set; }
+        public uint UIntValue { get; set; }
+        public ulong ULongValue { get; set; }
+    }
+
+    [Fact]
+    public void GenerateSchemaForType_ShouldGenerateNumericExamplesForUnsignedTypes()
+    {
+        var schema = ReflectionHelper.GenerateSchemaForType(typeof(UnsignedNumericModel));
+
+        Assert.NotNull(schema);
+
+        using var doc = JsonDocument.Parse(schema.Example);
+        var root = doc.RootElement;
+
+        Assert.Equal(JsonValueKind.Number, root.GetProperty("uShortValue").ValueKind);
+        Assert.Equal(JsonValueKind.Number, root.GetProperty("uIntValue").ValueKind);
+        Assert.Equal(JsonValueKind.Number, root.GetProperty("uLongValue").ValueKind);
     }
 
     // -------------------------------------------------------------------------

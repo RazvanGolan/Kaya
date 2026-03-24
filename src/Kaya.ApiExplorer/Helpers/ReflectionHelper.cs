@@ -114,17 +114,34 @@ public static class ReflectionHelper
         return !type.IsValueType || Nullable.GetUnderlyingType(type) != null;
     }
 
+    private static bool IsWholeNumberType(Type type)
+    {
+        return type == typeof(short)
+               || type == typeof(ushort)
+               || type == typeof(int)
+               || type == typeof(uint)
+               || type == typeof(long)
+               || type == typeof(ulong);
+    }
+
+    private static bool IsByteLikeType(Type type)
+    {
+        return type == typeof(byte) || type == typeof(sbyte);
+    }
+
     public static string GenerateExampleJson(Type type, Dictionary<string, ApiSchema> schemas, HashSet<Type> processedTypes)
     {
-        if (type == typeof(string)) return "\"string value\"";
-        if (type == typeof(int)) return "123";
-        if (type == typeof(bool)) return "true";
-        if (type == typeof(DateTime)) return "\"2023-07-13T10:30:00Z\"";
-        if (type == typeof(Guid)) return "\"3fa85f64-5717-4562-b3fc-2c963f66afa6\"";
-        if (type == typeof(decimal) || type == typeof(double) || type == typeof(float)) return "12.34";
-        if (type == typeof(byte)) return "0";
+        var underlyingType = Nullable.GetUnderlyingType(type) ?? type;
+
+        if (underlyingType == typeof(string)) return "\"string value\"";
+        if (IsWholeNumberType(underlyingType)) return "123";
+        if (underlyingType == typeof(bool)) return "true";
+        if (underlyingType == typeof(DateTime)) return "\"2023-07-13T10:30:00Z\"";
+        if (underlyingType == typeof(Guid)) return "\"3fa85f64-5717-4562-b3fc-2c963f66afa6\"";
+        if (underlyingType == typeof(decimal) || underlyingType == typeof(double) || underlyingType == typeof(float)) return "12.34";
+        if (IsByteLikeType(underlyingType)) return "0";
         // TODO: find a better example for enum types
-        if (type.IsEnum) 
+        if (underlyingType.IsEnum)
             return "0";
 
         // Handle Dictionary types specifically
@@ -243,7 +260,7 @@ public static class ReflectionHelper
             {
                 example[property.Name] = GenerateStringExample(property.Name);
             }
-            else if (underlyingType == typeof(int) || underlyingType == typeof(long))
+            else if (IsWholeNumberType(underlyingType))
             {
                 example[property.Name] = GenerateIntExample(property.Name);
             }
@@ -262,6 +279,10 @@ public static class ReflectionHelper
             else if (underlyingType == typeof(decimal) || underlyingType == typeof(double) || underlyingType == typeof(float))
             {
                 example[property.Name] = GenerateDecimalExample(property.Name);
+            }
+            else if (IsByteLikeType(underlyingType))
+            {
+                example[property.Name] = 0;
             }
             else if (underlyingType == typeof(object))
             {
@@ -370,12 +391,12 @@ public static class ReflectionHelper
         }
 
         if (underlyingType == typeof(string)) return "sample text";
-        if (underlyingType == typeof(int) || underlyingType == typeof(long)) return 123;
+        if (IsWholeNumberType(underlyingType)) return 123;
         if (underlyingType == typeof(bool)) return true;
         if (underlyingType == typeof(DateTime)) return DateTime.UtcNow;
         if (underlyingType == typeof(Guid)) return Guid.NewGuid();
         if (underlyingType == typeof(decimal) || underlyingType == typeof(double) || underlyingType == typeof(float)) return 12.34;
-        if (underlyingType == typeof(byte)) return (byte)0;
+        if (IsByteLikeType(underlyingType)) return 0;
         if (underlyingType == typeof(object)) return "object";
 
         if (underlyingType.IsEnum)
