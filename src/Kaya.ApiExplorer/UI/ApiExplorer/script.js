@@ -6,6 +6,14 @@ let endpointResponses = {}
 
 const requestHeaders = [{ key: "Content-Type", value: "application/json" }]
 
+// Storage keys for KayaStorage
+const STORAGE_KEYS = {
+  THEME: 'apiexplorer_theme',
+  HISTORY: 'apiexplorer_history'
+};
+
+const MAX_HISTORY_ENTRIES = 50; // Limit to prevent storage bloat
+
 let currentTheme = getInitialTheme()
 let logoClickCount = 0
 let logoClickTimer = null
@@ -29,6 +37,381 @@ function setupTextareaAutoResize(container) {
     // Initial resize for prefilled content
     autoResizeTextarea(textarea);
   });
+}
+
+// ============================================
+// REQUEST HISTORY MANAGEMENT
+// ============================================
+
+/**
+ * Load request history from storage
+ * @returns {Array} Array of history entries
+ */
+function loadHistory() {
+  try {
+    if (typeof KayaStorage === 'undefined') {
+      console.error('[History] KayaStorage is not defined!');
+      return [];
+    }
+    const history = KayaStorage.get(STORAGE_KEYS.HISTORY);
+    return Array.isArray(history) ? history : [];
+  } catch (error) {
+    console.error('[History] Error loading history:', error);
+    return [];
+  }
+}
+
+/**
+ * Save history to storage
+ * @param {Array} history - Array of history entries
+ */
+function saveHistory(history) {
+  // Limit entries
+  const trimmed = history.slice(0, MAX_HISTORY_ENTRIES);
+  KayaStorage.set(STORAGE_KEYS.HISTORY, trimmed, { ttlType: 'history' });
+}
+
+/**
+ * Add a request to history
+ * @param {Object} request - Request details
+ * @param {Object} response - Response details (optional)
+ * @param {Object} endpointMetadata - Endpoint metadata for reloading (optional)
+ */
+function addToHistory(request, response = null, endpointMetadata = null) {
+  try {
+    const history = loadHistory();
+    const source = endpointMetadata?.source || 'request-builder';
+    const normalizedUrl = normalizeHistoryUrl(request.url);
+    
+    const entry = {
+      id: generateUUID(),
+      timestamp: Date.now(),
+      type: 'http',
+      source,
+      http: {
+        method: request.method,
+        url: normalizedUrl,
+        headers: request.headers || {},
+        body: request.body ?? null
+      },
+      response: response ? {
+        statusCode: response.status,
+        statusText: response.statusText,
+        durationMs: response.durationMs,
+        sizeBytes: response.sizeBytes || 0,
+        preview: response.body ? response.body.substring(0, 200) : ''
+      } : null,
+      endpoint: endpointMetadata ? { ...endpointMetadata, source } : null,
+      displayName: `${request.method} ${truncateUrl(normalizedUrl, 50)}`
+    };
+    
+    // Add to beginning (most recent first)
+    history.unshift(entry);
+
+    saveHistory(history);
+    
+    renderHistoryPanel();
+  } catch (error) {
+    console.error('[History] Error adding to history:', error);
+  }
+}
+
+/**
+ * Remove a history entry by ID
+ * @param {string} id - Entry ID to remove
+ */
+function removeFromHistory(id) {
+  const history = loadHistory();
+  const filtered = history.filter(entry => entry.id !== id);
+  saveHistory(filtered);
+  renderHistoryPanel();
+}
+
+/**
+ * Clear all history
+ */
+function clearHistory() {
+  if (confirm('Clear all request history?')) {
+    KayaStorage.remove(STORAGE_KEYS.HISTORY);
+    renderHistoryPanel();
+  }
+}
+
+/**
+ * Toggle history panel visibility
+ */
+function toggleHistoryPanel() {
+  const panel = document.getElementById('history-panel');
+  if (panel) {
+    panel.classList.toggle('collapsed');
+  }
+}
+
+/**
+ * Load a history entry into the request builder or navigate to endpoint
+ * @param {string} id - Entry ID to load
+ */
+function loadHistoryEntry(id) {
+  const history = loadHistory();
+  const entry = history.find(e => e.id === id);
+  
+  if (!entry || entry.type !== 'http') return;
+  const source = entry.source || entry.endpoint?.source || (entry.endpoint?.endpointIdentifier ? 'try-it-out' : 'request-builder');
+  
+  // If this was an endpoint execution, navigate to that endpoint
+  if (source === 'try-it-out' && entry.endpoint && entry.endpoint.endpointIdentifier) {
+    const endpointId = entry.endpoint.endpointIdentifier;
+    let controllerName = null;
+
+    // Current format: controllerName-endpointIndex
+    // Legacy format fallback: controllerName_endpointIndex
+    const hyphenIndex = endpointId.lastIndexOf('-');
+    if (hyphenIndex > 0) {
+      controllerName = endpointId.substring(0, hyphenIndex);
+    } else {
+      const underscoreIndex = endpointId.lastIndexOf('_');
+      if (underscoreIndex > 0) {
+        controllerName = endpointId.substring(0, underscoreIndex);
+      }
+    }
+
+    if (controllerName) {
+      
+      // Select the controller in the sidebar
+      selectedController = controllerName;
+      renderControllers();
+      
+      // Expand the endpoint if not already expanded
+      if (!expandedEndpoints.includes(endpointId)) {
+        expandedEndpoints.push(endpointId);
+      }
+      
+      // Set the active tab to "try" before rendering
+      endpointActiveTabs[endpointId] = 'try';
+      
+      // Re-render to show the expanded endpoint with correct tab
+      renderEndpoints();
+      
+      // Wait for DOM to update, then populate parameters and scroll
+      setTimeout(() => {
+        // Populate parameter values
+        if (entry.endpoint.parameters) {
+          Object.entries(entry.endpoint.parameters).forEach(([paramName, paramData]) => {
+            if (paramData.source === "Form" && typeof paramData.value === 'object') {
+              // Complex form object - populate all properties
+              Object.entries(paramData.value).forEach(([propName, propValue]) => {
+                const input = document.getElementById(`param-${endpointId}-${paramName}.${propName}`);
+                if (input) {
+                  input.value = propValue;
+                }
+              });
+            } else {
+              const input = document.getElementById(`param-${endpointId}-${paramName}`);
+              if (input) {
+                input.value = paramData.value;
+              }
+            }
+          });
+        }
+        
+        // Populate request body if present
+        if (entry.http.body !== null && entry.http.body !== undefined) {
+          const bodyTextarea = document.getElementById(`request-body-${endpointId}`);
+          if (bodyTextarea) {
+            bodyTextarea.value = entry.http.body;
+            autoResizeTextarea(bodyTextarea);
+          }
+        }
+
+        // Restore body editor mode for try-it-out if available
+        const tryBodyMode = entry.endpoint?.bodyEditorMode;
+        if (tryBodyMode) {
+          const modeSelect = document.getElementById(`bodyEditorMode-${endpointId}`);
+          if (modeSelect) {
+            modeSelect.value = tryBodyMode;
+            switchTryItOutBodyEditorMode(`request-body-${endpointId}`, `request-body-kv-${endpointId}`);
+          }
+        }
+        
+        // Scroll to the endpoint in the main content area
+        const endpointCard = document.querySelector(`#content-${endpointId}`)?.closest('.endpoint-card');
+        if (endpointCard) {
+          // Scroll in the main content area
+          const mainContent = document.querySelector('.main-content');
+          if (mainContent) {
+            const rect = endpointCard.getBoundingClientRect();
+            const mainRect = mainContent.getBoundingClientRect();
+            const scrollTop = mainContent.scrollTop + rect.top - mainRect.top - 80;
+            mainContent.scrollTo({ top: scrollTop, behavior: 'smooth' });
+          }
+        }
+      }, 150);
+      
+      return;
+    }
+  }
+  
+  // Otherwise, load into request builder (original behavior)
+  const methodSelect = document.getElementById('requestMethod');
+  const urlInput = document.getElementById('requestUrl');
+  const bodyTextarea = document.getElementById('requestBody');
+  
+  if (methodSelect) methodSelect.value = entry.http.method;
+  if (urlInput) urlInput.value = normalizeHistoryUrl(entry.http.url);
+  if (bodyTextarea && entry.http.body !== null && entry.http.body !== undefined) {
+    bodyTextarea.value = entry.http.body;
+    autoResizeTextarea(bodyTextarea);
+  }
+
+  const savedRequestBuilderMode = entry.endpoint?.requestBuilderState?.bodyEditorMode;
+  if (savedRequestBuilderMode) {
+    const modeSelect = document.getElementById('bodyEditorMode');
+    if (modeSelect) {
+      modeSelect.value = savedRequestBuilderMode;
+      switchBodyEditorMode();
+
+      if (savedRequestBuilderMode === 'keyvalue') {
+        try {
+          const kvData = JSON.parse(entry.http.body || '{}');
+          populateRequestBuilderKeyValueEditor(kvData);
+        } catch {
+          populateRequestBuilderKeyValueEditor({});
+        }
+      }
+    }
+  }
+  
+  // Update headers
+  requestHeaders.length = 0;
+  const headers = entry.http.headers || {};
+  for (const [key, value] of Object.entries(headers)) {
+    requestHeaders.push({ key, value });
+  }
+  if (requestHeaders.length === 0) {
+    requestHeaders.push({ key: "Content-Type", value: "application/json" });
+  }
+  renderHeadersTable();
+  
+  // Switch to request builder tab if not already there
+  const requestBuilderTab = document.querySelector('.sidebar-tabs .tab-btn[data-view="request-builder"]');
+  if (requestBuilderTab) requestBuilderTab.click();
+  
+  // Scroll to top of request builder
+  const requestBuilder = document.getElementById('requestBuilder');
+  if (requestBuilder) requestBuilder.scrollIntoView({ behavior: 'smooth' });
+}
+
+/**
+ * Generate a UUID v4
+ * @returns {string}
+ */
+function generateUUID() {
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+    const r = Math.random() * 16 | 0;
+    const v = c === 'x' ? r : (r & 0x3 | 0x8);
+    return v.toString(16);
+  });
+}
+
+/**
+ * Truncate URL for display
+ * @param {string} url - URL to truncate
+ * @param {number} maxLength - Maximum length
+ * @returns {string}
+ */
+function truncateUrl(url, maxLength = 40) {
+  if (url.length <= maxLength) return url;
+  
+  // Try to preserve the path
+  try {
+    const urlObj = new URL(url, window.location.origin);
+    const path = urlObj.pathname + urlObj.search;
+    if (path.length <= maxLength) return path;
+    return path.substring(0, maxLength - 3) + '...';
+  } catch {
+    return url.substring(0, maxLength - 3) + '...';
+  }
+}
+
+function normalizeHistoryUrl(url) {
+  if (!url) return '/';
+
+  try {
+    const parsed = new URL(url, window.location.origin);
+    const normalized = `${parsed.pathname}${parsed.search}`;
+    return normalized || '/';
+  } catch {
+    return url.startsWith('/') ? url : `/${url}`;
+  }
+}
+
+/**
+ * Format timestamp as relative time
+ * @param {number} timestamp - Unix timestamp in milliseconds
+ * @returns {string}
+ */
+function formatRelativeTime(timestamp) {
+  const seconds = Math.floor((Date.now() - timestamp) / 1000);
+  
+  if (seconds < 60) return 'just now';
+  if (seconds < 3600) return `${Math.floor(seconds / 60)}m ago`;
+  if (seconds < 86400) return `${Math.floor(seconds / 3600)}h ago`;
+  if (seconds < 604800) return `${Math.floor(seconds / 86400)}d ago`;
+  
+  return new Date(timestamp).toLocaleDateString();
+}
+
+/**
+ * Get CSS class for HTTP method badge
+ * @param {string} method - HTTP method
+ * @returns {string}
+ */
+function getMethodBadgeClass(method) {
+  const methodClasses = {
+    'GET': 'method-get',
+    'POST': 'method-post',
+    'PUT': 'method-put',
+    'DELETE': 'method-delete',
+    'PATCH': 'method-patch',
+    'HEAD': 'method-head',
+    'OPTIONS': 'method-options'
+  };
+  return methodClasses[method.toUpperCase()] || 'method-default';
+}
+
+/**
+ * Render the history panel UI
+ */
+function renderHistoryPanel() {
+  const historyList = document.getElementById('history-list');
+  if (!historyList) return;
+  
+  const history = loadHistory();
+  
+  if (history.length === 0) {
+    historyList.innerHTML = '<div class="history-empty">No request history yet.<br>Send a request to see it here.</div>';
+    return;
+  }
+  
+  historyList.innerHTML = history.map(entry => `
+    <div class="history-item" data-id="${entry.id}">
+      <div class="history-item-header">
+        <span class="history-method ${getMethodBadgeClass(entry.http.method)}">${entry.http.method}</span>
+        <span class="history-url" title="${normalizeHistoryUrl(entry.http.url)}">${truncateUrl(normalizeHistoryUrl(entry.http.url), 35)}</span>
+        <button class="history-delete" onclick="event.stopPropagation(); removeFromHistory('${entry.id}')" title="Remove from history">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <line x1="18" y1="6" x2="6" y2="18"></line>
+            <line x1="6" y1="6" x2="18" y2="18"></line>
+          </svg>
+        </button>
+      </div>
+      <div class="history-item-meta">
+        <span class="history-time">${formatRelativeTime(entry.timestamp)}</span>
+        ${entry.response ? `<span class="history-status ${entry.response.statusCode >= 400 ? 'status-error' : 'status-success'}">${entry.response.statusCode}</span>` : ''}
+      </div>
+      <button class="history-load-btn" onclick="loadHistoryEntry('${entry.id}')">Load</button>
+    </div>
+  `).join('');
 }
 
 function generateCurlCode(url, method, headers, body, formFields = null) {
@@ -89,7 +472,7 @@ function generateJavaScriptCode(url, method, headers, body, formFields = null) {
     code += '\n})';
   }
   
-  code += ';\n\nconst data = await response.json();\nconsole.log(data);';
+  code += ';\n\nconst data = await response.json();\nreturn data;';
   
   return code;
 }
@@ -680,7 +1063,6 @@ function parseKeyValueData(containerId) {
 }
 
 function getInitialTheme() {
-  console.log(window.KayaApiExplorerConfig)
   if (window.KayaApiExplorerConfig && window.KayaApiExplorerConfig.defaultTheme) {
     const serverTheme = window.KayaApiExplorerConfig.defaultTheme.toLowerCase()
     if (serverTheme === 'light' || serverTheme === 'dark') {
@@ -823,7 +1205,6 @@ async function loadApiData() {
     const routePrefix = config.routePrefix || '/kaya';
     const response = await fetch(`${routePrefix}/api-docs`);
     const data = await response.json();
-    console.log('API data loaded:', data);
     controllers = data.controllers || [];
     if (controllers.length > 0) {
       selectedController = controllers[0].name;
@@ -1755,11 +2136,12 @@ async function executeEndpoint(endpoint, endpointIdentifier) {
   const startTime = performance.now();
 
   try {
-    const { url: finalUrl, requestOptions } = buildRequestData({
+    const { url: finalUrl, method, headers, body, requestOptions, formFields } = buildRequestData({
       endpoint: endpoint,
       endpointIdentifier: endpointIdentifier,
       validateBody: true
     });
+    const tryBodyMode = document.getElementById(`bodyEditorMode-${endpointIdentifier}`)?.value || 'json';
 
     const response = await fetch(finalUrl, requestOptions);
     const responseText = await response.text();
@@ -1768,6 +2150,87 @@ async function executeEndpoint(endpoint, endpointIdentifier) {
     const duration = Math.round(endTime - startTime);
     const requestSize = requestOptions.body ? new Blob([requestOptions.body]).size : 0;
     const responseSize = new Blob([responseText]).size;
+    
+    // Collect parameter values for history (excluding files)
+    const parameterValues = {};
+    if (endpoint.parameters) {
+      endpoint.parameters.forEach(param => {
+        // Skip file parameters
+        if (param.source === "File" || param.isFile) {
+          return;
+        }
+        
+        // Get parameter value from form
+        let paramValue = null;
+        if (param.source === "Form" && param.schema && param.schema.properties) {
+          // Complex form object - collect all properties
+          const formObject = {};
+          Object.keys(param.schema.properties).forEach(propName => {
+            const propInput = document.getElementById(`param-${endpointIdentifier}-${param.name}.${propName}`);
+            if (propInput && propInput.value) {
+              formObject[propName] = propInput.value;
+            }
+          });
+          if (Object.keys(formObject).length > 0) {
+            paramValue = formObject;
+          }
+        } else {
+          const input = document.getElementById(`param-${endpointIdentifier}-${param.name}`);
+          if (input && input.value) {
+            paramValue = input.value;
+          }
+        }
+        
+        if (paramValue !== null) {
+          parameterValues[param.name] = {
+            value: paramValue,
+            source: param.source,
+            type: param.type
+          };
+        }
+      });
+    }
+    
+    // Get request body if present (excluding FormData with files)
+    let historyBody = null;
+    if (body && !(body instanceof FormData)) {
+      historyBody = body;
+    } else if (body instanceof FormData && formFields) {
+      // Store non-file form fields as JSON
+      const nonFileFields = formFields.filter(f => !f.isFile);
+      if (nonFileFields.length > 0) {
+        const formObj = {};
+        nonFileFields.forEach(f => {
+          formObj[f.key] = f.value;
+        });
+        historyBody = JSON.stringify(formObj);
+      }
+    }
+    
+    // Add to history with endpoint metadata
+    addToHistory(
+      { 
+        method, 
+        url: finalUrl, 
+        headers, 
+        body: historyBody 
+      },
+      { 
+        status: response.status, 
+        statusText: response.statusText, 
+        durationMs: duration, 
+        sizeBytes: responseSize, 
+        body: responseText 
+      },
+      {
+        endpointPath: endpoint.path,
+        endpointMethod: endpoint.httpMethodType,
+        endpointIdentifier: endpointIdentifier,
+        source: 'try-it-out',
+        bodyEditorMode: tryBodyMode,
+        parameters: parameterValues
+      }
+    );
     
     let responseData;
     try {
@@ -1828,6 +2291,38 @@ async function executeEndpoint(endpoint, endpointIdentifier) {
     };
 
   } catch (error) {
+    const endTime = performance.now();
+    const duration = Math.round(endTime - startTime);
+    
+    // Add failed request to history
+    try {
+      const { url: finalUrl, method, headers, body } = buildRequestData({
+        endpoint: endpoint,
+        endpointIdentifier: endpointIdentifier,
+        validateBody: false,
+        allowEmptyPathParams: true
+      });
+      
+      let historyBody = null;
+      if (body && !(body instanceof FormData)) {
+        historyBody = body;
+      }
+      
+      addToHistory(
+        { method, url: finalUrl, headers, body: historyBody },
+        { status: 0, statusText: 'Error', durationMs: duration, sizeBytes: 0, body: error.message },
+        {
+          endpointPath: endpoint.path,
+          endpointMethod: endpoint.httpMethodType,
+          endpointIdentifier: endpointIdentifier,
+          source: 'try-it-out',
+          bodyEditorMode: document.getElementById(`bodyEditorMode-${endpointIdentifier}`)?.value || 'json'
+        }
+      );
+    } catch (historyError) {
+      console.error('[History] Failed to save error to history:', historyError);
+    }
+    
     const errorHtml = `
       <div class="response-error" style="margin-top: 12px;">
         <h5>Error</h5>
@@ -1878,7 +2373,7 @@ function saveToFile(button, type, endpointInfo = null) {
     try {
       endpointInfo = JSON.parse(button.dataset.endpoint);
     } catch (e) {
-      console.warn('Failed to parse endpoint data:', e);
+      console.error('Failed to parse endpoint data:', e);
     }
   }
   
@@ -2164,14 +2659,21 @@ async function sendRequest() {
 
   const startTime = performance.now();
 
-  try {
-    const customHeaders = {}
-    requestHeaders.forEach((header) => {
-      if (header.key && header.value) {
-        customHeaders[header.key] = header.value
-      }
-    })
+  // Prepare request details for history
+  const customHeaders = {}
+  requestHeaders.forEach((header) => {
+    if (header.key && header.value) {
+      customHeaders[header.key] = header.value
+    }
+  })
+  
+  let requestBody = null;
+  if (method !== "GET") {
+    requestBody = getRequestBuilderBodyContent();
+  }
+  const requestBuilderBodyEditorMode = document.getElementById("bodyEditorMode")?.value || 'json';
 
+  try {
     const { requestOptions } = buildRequestData({
       baseUrl: url,
       customHeaders: customHeaders,
@@ -2180,11 +2682,8 @@ async function sendRequest() {
 
     requestOptions.method = method;
 
-    if (method !== "GET") {
-      const requestBodyContent = getRequestBuilderBodyContent();
-      if (requestBodyContent) {
-        requestOptions.body = requestBodyContent;
-      }
+    if (requestBody) {
+      requestOptions.body = requestBody;
     }
 
     const response = await fetch(url, requestOptions)
@@ -2194,6 +2693,13 @@ async function sendRequest() {
     const duration = Math.round(endTime - startTime);
     const requestSize = requestOptions.body ? new Blob([requestOptions.body]).size : 0;
     const responseSize = new Blob([responseText]).size;
+
+    // Add to history (for both success and error responses)
+    addToHistory(
+      { method, url, headers: customHeaders, body: requestBody },
+      { status: response.status, statusText: response.statusText, durationMs: duration, sizeBytes: responseSize, body: responseText },
+      { source: 'request-builder', requestBuilderState: { bodyEditorMode: requestBuilderBodyEditorMode } }
+    );
 
     const responseContainer = document.getElementById("responseContainer")
 
@@ -2243,6 +2749,20 @@ async function sendRequest() {
     document.querySelector('[data-tab="response"]').click()
   } catch (error) {    
     const responseContainer = document.getElementById("responseContainer")
+    
+    // Add failed request to history (network errors, etc.)
+    const endTime = performance.now();
+    const duration = Math.round(endTime - startTime);
+    
+    // Only add to history if it wasn't already added (for HTTP errors that were caught above)
+    if (!error.message.match(/^\d{3}\s/)) {
+      addToHistory(
+        { method, url, headers: customHeaders, body: requestBody },
+        { status: 0, statusText: 'Network Error', durationMs: duration, sizeBytes: 0, body: error.message },
+        { source: 'request-builder', requestBuilderState: { bodyEditorMode: requestBuilderBodyEditorMode } }
+      );
+    }
+    
     responseContainer.innerHTML = `
             <div class="response-error">
                 <h5>Error</h5>
@@ -2517,9 +3037,17 @@ function switchRequestTab(tabName) {
 
 // Initialize the application
 document.addEventListener("DOMContentLoaded", async () => {
+  // Clean up expired storage entries
+  if (typeof KayaStorage !== 'undefined') {
+    KayaStorage.cleanup();
+  }
+  
   initializeTheme()
   
   loadAuthConfiguration()
+  
+  // Initialize history panel
+  renderHistoryPanel()
   
   await checkOpenApiAvailability()
 

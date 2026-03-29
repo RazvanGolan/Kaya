@@ -317,6 +317,7 @@ body {
 .sidebar-content {
   flex: 1;
   overflow-y: auto;
+  min-height: 0; /* Important for proper flex behavior */
 }
 
 /* Custom scrollbar for sidebar */
@@ -1763,4 +1764,315 @@ input[type="file"].file-input {
   100% {
     transform: scale(1) rotate(0deg);
   }
+}
+
+/* ============================================
+   REQUEST HISTORY PANEL
+   Sticky at bottom of sidebar with samurai theme
+   ============================================ */
+
+/* History Panel - Sticky at bottom */
+.history-panel {
+  position: sticky;
+  bottom: 0;
+  border-top: 2px solid var(--border-primary);
+  background: var(--bg-secondary);
+  max-height: 400px;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 -4px 12px rgba(0, 0, 0, 0.08);
+  z-index: 10;
+}
+
+[data-theme="dark"] .history-panel {
+  box-shadow: 0 -4px 12px rgba(0, 0, 0, 0.3);
+}
+
+.history-panel.collapsed .history-panel-content {
+  display: none;
+}
+
+.history-panel.collapsed .history-toggle-icon {
+  transform: rotate(180deg);
+}
+
+.history-panel.collapsed {
+  max-height: none;
+}
+
+.history-panel-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 14px 16px;
+  cursor: pointer;
+  font-weight: 600;
+  font-size: 13px;
+  color: var(--text-primary);
+  background: var(--bg-primary);
+  border-bottom: 1px solid var(--border-primary);
+  transition: all 0.2s ease;
+}
+
+.history-panel-header:hover {
+  background: var(--hover-bg);
+}
+
+.history-panel-header svg:first-child {
+  color: var(--accent-primary);
+}
+
+.history-panel-header span {
+  flex: 1;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  font-size: 12px;
+}
+
+.history-toggle-icon {
+  transition: transform 0.3s ease;
+  color: var(--text-secondary);
+}
+
+.history-clear-btn {
+  background: none;
+  border: none;
+  padding: 6px;
+  cursor: pointer;
+  color: var(--text-muted);
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+}
+
+.history-clear-btn:hover {
+  background: var(--error-bg);
+  color: var(--error-text);
+  transform: scale(1.1);
+}
+
+.history-panel-content {
+  flex: 1;
+  overflow-y: auto;
+  padding: 12px;
+  background: var(--bg-secondary);
+  max-height: 350px;
+}
+
+.history-panel-content::-webkit-scrollbar {
+  width: 6px;
+}
+
+.history-panel-content::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.history-panel-content::-webkit-scrollbar-thumb {
+  background: var(--border-secondary);
+  border-radius: 3px;
+}
+
+.history-panel-content::-webkit-scrollbar-thumb:hover {
+  background: var(--accent-primary);
+}
+
+.history-empty {
+  text-align: center;
+  padding: 32px 16px;
+  color: var(--text-muted);
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+.history-item {
+  position: relative;
+  padding: 12px;
+  border-radius: 8px;
+  background: var(--bg-primary);
+  border: 1px solid var(--border-primary);
+  transition: all 0.2s ease;
+  margin-bottom: 10px;
+}
+
+.history-item:last-child {
+  margin-bottom: 0;
+}
+
+.history-item::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 3px;
+  background: var(--accent-primary);
+  border-radius: 8px 0 0 8px;
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+
+.history-item:hover {
+  background: var(--bg-primary);
+  border-color: var(--accent-primary);
+  box-shadow: 0 2px 8px var(--shadow-light);
+  transform: translateX(2px);
+}
+
+.history-item:hover::before {
+  opacity: 1;
+}
+
+.history-item-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.history-method {
+  padding: 4px 10px;
+  border-radius: 4px;
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  border: 1px solid transparent;
+}
+
+.history-method.method-get {
+  background: var(--info-bg);
+  color: var(--info-text);
+  border-color: var(--info-border);
+}
+
+.history-method.method-post {
+  background: var(--success-bg);
+  color: var(--success-text);
+  border-color: var(--success-border);
+}
+
+.history-method.method-put {
+  background: var(--warning-bg);
+  color: var(--warning-text);
+  border-color: var(--warning-border);
+}
+
+.history-method.method-delete {
+  background: var(--error-bg);
+  color: var(--error-text);
+  border-color: var(--error-border);
+}
+
+.history-method.method-patch {
+  background: var(--badge-patch-bg);
+  color: var(--badge-patch-text);
+  border-color: var(--badge-patch-border);
+}
+
+.history-method.method-head,
+.history-method.method-options,
+.history-method.method-default {
+  background: var(--bg-tertiary);
+  color: var(--text-muted);
+  border-color: var(--border-primary);
+}
+
+.history-url {
+  flex: 1;
+  font-size: 12px;
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-weight: 500;
+  font-family: 'Courier New', monospace;
+}
+
+.history-item-meta {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 11px;
+  margin-bottom: 10px;
+}
+
+.history-time {
+  color: var(--text-secondary);
+  font-weight: 500;
+}
+
+.history-status {
+  padding: 3px 8px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.3px;
+}
+
+.history-status.status-success {
+  background: var(--success-bg);
+  color: var(--success-text);
+  border: 1px solid var(--success-border);
+}
+
+.history-status.status-error {
+  background: var(--error-bg);
+  color: var(--error-text);
+  border: 1px solid var(--error-border);
+}
+
+.history-load-btn {
+  width: 100%;
+  padding: 8px 12px;
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-primary);
+  border-radius: 6px;
+  color: var(--text-secondary);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.history-load-btn:hover {
+  background: var(--accent-primary);
+  border-color: var(--accent-primary);
+  color: white;
+  box-shadow: 0 2px 8px var(--shadow-light);
+  transform: translateY(-1px);
+}
+
+.history-load-btn:active {
+  transform: translateY(0);
+}
+
+.history-delete {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  border: none;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  opacity: 0;
+  transition: all 0.2s ease;
+}
+
+.history-item:hover .history-delete {
+  opacity: 1;
+}
+
+.history-delete:hover {
+  background: var(--error-bg);
+  color: var(--error-text);
+  transform: scale(1.1);
 }

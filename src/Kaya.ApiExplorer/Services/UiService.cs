@@ -22,6 +22,7 @@ public class UIService(KayaApiExplorerOptions options) : IUIService
             // Read embedded resources directly
             var htmlContent = await ReadEmbeddedResourceAsync(assembly, "UI.ApiExplorer.index.html");
             var cssContent = await ReadEmbeddedResourceAsync(assembly, "UI.ApiExplorer.styles.css");
+            var kayaStorageJsContent = await ReadEmbeddedResourceAsync(assembly, "UI.Shared.kaya-storage.js");
             var authJsContent = await ReadEmbeddedResourceAsync(assembly, "UI.ApiExplorer.auth.js");
             var jsContent = await ReadEmbeddedResourceAsync(assembly, "UI.ApiExplorer.script.js");
             var favIconContent = await ReadEmbeddedResourceAsync(assembly, "UI.ApiExplorer.icon.svg");
@@ -33,7 +34,7 @@ public class UIService(KayaApiExplorerOptions options) : IUIService
 
             var finalHtml = htmlContent
                 .Replace("<link rel=\"stylesheet\" href=\"styles.css\">", $"<style>{cssContent}</style>")
-                .Replace("<script src=\"script.js\"></script>", $"{themeScript}<script>{authJsContent}</script><script>{jsContent}</script>")
+                .Replace("<script src=\"script.js\"></script>", $"{themeScript}<script>{kayaStorageJsContent}</script><script>{authJsContent}</script><script>{jsContent}</script>")
                 .Replace("<link rel=\"icon\" type=\"image/svg+xml\" href=\"icon.svg\">", $"<link rel=\"icon\" type=\"image/svg+xml\" href=\"data:image/svg+xml;base64,{svgBase64}\">");
 
             return finalHtml;

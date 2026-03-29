@@ -5,11 +5,158 @@ let connections = new Map(); // hubName -> connection
 let registeredHandlers = new Map(); // hubName -> Map of { eventName -> handler function }
 let logs = [];
 
-// Storage keys
+// Storage keys for KayaStorage
 const STORAGE_KEYS = {
-    CONNECTIONS: 'kayaSignalR_connections',
-    HANDLERS: 'kayaSignalR_handlers'
+    THEME: 'signalr_theme',
+    CONNECTIONS: 'signalr_connections',
+    HANDLERS: 'signalr_handlers',
+    HISTORY: 'signalr_history',
+    HISTORY_PANEL_COLLAPSED: 'signalr_history_panel_collapsed'
 };
+
+const MAX_HISTORY_ENTRIES = 50;
+
+// History Management Functions
+function loadHistory() {
+    return KayaStorage.get(STORAGE_KEYS.HISTORY) || [];
+}
+
+function saveHistory(history) {
+    KayaStorage.set(STORAGE_KEYS.HISTORY, history, { ttlType: 'history' });
+}
+
+function addToHistory(entry) {
+    const history = loadHistory();
+    // Add new entry at beginning
+    history.unshift({
+        id: crypto.randomUUID(),
+        timestamp: Date.now(),
+        type: 'signalr',
+        ...entry
+    });
+    // Limit entries
+    if (history.length > MAX_HISTORY_ENTRIES) {
+        history.length = MAX_HISTORY_ENTRIES;
+    }
+    saveHistory(history);
+    renderHistoryPanel();
+}
+
+function clearHistory() {
+    if (confirm('Clear all invocation history?')) {
+        KayaStorage.remove(STORAGE_KEYS.HISTORY);
+        renderHistoryPanel();
+    }
+}
+
+function deleteHistoryEntry(id) {
+    const history = loadHistory().filter(e => e.id !== id);
+    saveHistory(history);
+    renderHistoryPanel();
+}
+
+function loadFromHistory(id) {
+    const history = loadHistory();
+    const entry = history.find(e => e.id === id);
+    if (!entry) return;
+
+    // Select the hub
+    const hub = hubsData.find(h => h.name === entry.hubName);
+    if (hub) {
+        selectHub(hub);
+        
+        // Wait for hub details to render, then fill in method
+        setTimeout(() => {
+            const method = hub.methods.find(m => m.name === entry.methodName);
+            if (method) {
+                renderMethodPanel(method);
+                
+                // Fill in arguments if present
+                setTimeout(() => {
+                    if (entry.arguments) {
+                        const textareas = document.querySelectorAll('#methodParameters .body-textarea');
+                        const argValues = entry.arguments;
+                        textareas.forEach((textarea, index) => {
+                            if (argValues[index] !== undefined) {
+                                if (typeof argValues[index] === 'object') {
+                                    textarea.value = JSON.stringify(argValues[index], null, 2);
+                                } else {
+                                    textarea.value = String(argValues[index]);
+                                }
+                                autoResizeTextarea(textarea);
+                            }
+                        });
+                    }
+                    addLog('info', `Loaded method invocation from history: ${entry.hubName}.${entry.methodName}`);
+                }, 100);
+            }
+        }, 100);
+    }
+}
+
+function renderHistoryPanel() {
+    const panel = document.getElementById('history-panel-content');
+    if (!panel) return;
+
+    const history = loadHistory();
+    
+    if (history.length === 0) {
+        panel.innerHTML = '<div class="history-empty">No invocation history yet</div>';
+        return;
+    }
+    
+    panel.innerHTML = history.map(entry => `
+        <div class="history-entry" data-id="${entry.id}">
+            <div class="history-entry-header">
+                <span class="history-method-badge">${escapeHtml(entry.hubName)}</span>
+                <span class="history-display-name">${escapeHtml(entry.methodName)}</span>
+                <button class="history-delete-btn" onclick="deleteHistoryEntry('${entry.id}')" title="Delete">&times;</button>
+            </div>
+            <div class="history-entry-meta">
+                ${entry.response ? `<span class="history-status ${entry.response.success ? 'success' : 'error'}">${entry.response.success ? '✓' : '✗'}</span>` : ''}
+                <span class="history-time">${formatHistoryTime(entry.timestamp)}</span>
+                ${entry.response && entry.response.durationMs ? `<span class="history-duration">${entry.response.durationMs}ms</span>` : ''}
+            </div>
+            <button class="history-load-btn" onclick="loadFromHistory('${entry.id}')">Load</button>
+        </div>
+    `).join('');
+}
+
+function formatHistoryTime(timestamp) {
+    const date = new Date(timestamp);
+    const now = new Date();
+    const diffMs = now - date;
+    const diffMins = Math.floor(diffMs / 60000);
+    const diffHours = Math.floor(diffMs / 3600000);
+    const diffDays = Math.floor(diffMs / 86400000);
+    
+    if (diffMins < 1) return 'Just now';
+    if (diffMins < 60) return `${diffMins}m ago`;
+    if (diffHours < 24) return `${diffHours}h ago`;
+    if (diffDays < 7) return `${diffDays}d ago`;
+    return date.toLocaleDateString();
+}
+
+function toggleHistoryPanel() {
+    const panel = document.getElementById('history-panel');
+    if (panel) {
+        panel.classList.toggle('collapsed');
+        const isCollapsed = panel.classList.contains('collapsed');
+        KayaStorage.set(STORAGE_KEYS.HISTORY_PANEL_COLLAPSED, isCollapsed, { ttlType: 'preference' });
+    }
+}
+
+function getSavedHistoryPanelCollapsedState() {
+    const saved = KayaStorage.get(STORAGE_KEYS.HISTORY_PANEL_COLLAPSED);
+    return typeof saved === 'boolean' ? saved : true;
+}
+
+function applyHistoryPanelCollapsedState(isCollapsed) {
+    const panel = document.getElementById('history-panel');
+    if (panel) {
+        panel.classList.toggle('collapsed', isCollapsed);
+    }
+}
 
 function clearBodyTextarea(textareaId) {
     const el = document.getElementById(textareaId);
@@ -72,9 +219,12 @@ function setupTextareaAutoResize(container) {
 
 // Initialize the application
 document.addEventListener('DOMContentLoaded', () => {
+    KayaStorage.cleanup(); // Clean up expired entries
     initializeTheme();
     setupEventListeners();
     loadHubs();
+    applyHistoryPanelCollapsedState(getSavedHistoryPanelCollapsedState());
+    renderHistoryPanel();
     // After hubs are loaded, restore connections
     setTimeout(() => restoreConnectionsFromStorage(), 500);
 });
@@ -82,7 +232,7 @@ document.addEventListener('DOMContentLoaded', () => {
 // Theme Management
 function initializeTheme() {
     const config = window.KayaSignalRDebugConfig || { defaultTheme: 'light' };
-    const savedTheme = localStorage.getItem('theme') || config.defaultTheme;
+    const savedTheme = KayaStorage.get(STORAGE_KEYS.THEME) || config.defaultTheme;
     document.documentElement.setAttribute('data-theme', savedTheme);
     updateThemeIcons();
 }
@@ -91,7 +241,7 @@ function toggleTheme() {
     const currentTheme = document.documentElement.getAttribute('data-theme');
     const newTheme = currentTheme === 'light' ? 'dark' : 'light';
     document.documentElement.setAttribute('data-theme', newTheme);
-    localStorage.setItem('theme', newTheme);
+    KayaStorage.set(STORAGE_KEYS.THEME, newTheme, { ttlType: 'preference' });
     updateThemeIcons();
 }
 
@@ -710,6 +860,13 @@ async function invokeMethod() {
         return;
     }
     
+    const startTime = performance.now();
+    let historyEntry = {
+        hubName: currentHub.name,
+        methodName: methodName,
+        arguments: []
+    };
+    
     try {
         // Collect parameters
         const paramInputs = document.querySelectorAll('#methodParameters textarea');
@@ -736,10 +893,13 @@ async function invokeMethod() {
             }
         }
         
+        historyEntry.arguments = args;
+        
         const argsDisplay = args.length > 0 ? JSON.stringify(args) : 'no arguments';
         addLog('info', `Invoking ${methodName}`, args.length > 0 ? args : null);
         
         const result = await connection.invoke(methodName, ...args);
+        const durationMs = Math.round(performance.now() - startTime);
 
         if (result !== undefined && result !== null) {
             addLog('success', `${methodName} returned: `, result);
@@ -747,10 +907,28 @@ async function invokeMethod() {
             addLog('success', `${methodName} completed successfully`);
         }
         
+        // Record success to history
+        historyEntry.response = {
+            success: true,
+            durationMs: durationMs,
+            result: result
+        };
+        addToHistory(historyEntry);
+        
         closeMethodModal();
     } catch (error) {
+        const durationMs = Math.round(performance.now() - startTime);
         console.error('Method invocation failed:', error);
         addLog('error', `${methodName} failed:`, error.message);
+        
+        // Record failure to history
+        historyEntry.response = {
+            success: false,
+            durationMs: durationMs,
+            error: error.message
+        };
+        addToHistory(historyEntry);
+        
         alert(`Failed to invoke method: ${error.message}`);
     }
 }
@@ -903,7 +1081,7 @@ function saveConnectionsToStorage() {
             }
         }
     });
-    localStorage.setItem(STORAGE_KEYS.CONNECTIONS, JSON.stringify(connectionsData));
+    KayaStorage.set(STORAGE_KEYS.CONNECTIONS, connectionsData, { ttlType: 'connections' });
 }
 
 function saveHandlersToStorage() {
@@ -916,18 +1094,15 @@ function saveHandlersToStorage() {
             });
         });
     });
-    localStorage.setItem(STORAGE_KEYS.HANDLERS, JSON.stringify(handlersData));
+    KayaStorage.set(STORAGE_KEYS.HANDLERS, handlersData, { ttlType: 'connections' });
 }
 
 async function restoreConnectionsFromStorage() {
     try {
-        const connectionsJSON = localStorage.getItem(STORAGE_KEYS.CONNECTIONS);
-        const handlersJSON = localStorage.getItem(STORAGE_KEYS.HANDLERS);
+        const connectionsData = KayaStorage.get(STORAGE_KEYS.CONNECTIONS);
+        const handlersData = KayaStorage.get(STORAGE_KEYS.HANDLERS) || [];
         
-        if (!connectionsJSON) return;
-        
-        const connectionsData = JSON.parse(connectionsJSON);
-        const handlersData = handlersJSON ? JSON.parse(handlersJSON) : [];
+        if (!connectionsData || !Array.isArray(connectionsData)) return;
         
         for (const connData of connectionsData) {
             const hub = hubsData.find(h => h.name === connData.hubName);
