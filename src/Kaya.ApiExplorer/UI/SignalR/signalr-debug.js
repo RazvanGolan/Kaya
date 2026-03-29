@@ -55,21 +55,46 @@ function deleteHistoryEntry(id) {
     renderHistoryPanel();
 }
 
-function loadFromHistory(id) {
+async function loadFromHistory(id) {
     const history = loadHistory();
     const entry = history.find(e => e.id === id);
     if (!entry) return;
 
+    // Reload hubs so history can navigate even after server-side changes.
+    await loadHubs();
+
     // Select the hub
     const hub = hubsData.find(h => h.name === entry.hubName);
     if (hub) {
-        selectHub(hub);
+        selectHub(entry.hubName);
         
-        // Wait for hub details to render, then fill in method
+        // Wait for hub details to render, then navigate to the target method
         setTimeout(() => {
-            const method = hub.methods.find(m => m.name === entry.methodName);
+            const method = hub.methods.find(m => m.name === entry.methodName || m.methodName === entry.methodName);
             if (method) {
-                renderMethodPanel(method);
+                const methodsGrid = document.querySelector('#hubDetailView .methods-grid');
+                if (methodsGrid) {
+                    const methodCards = Array.from(methodsGrid.querySelectorAll('.method-card'));
+                    const targetCard = methodCards.find(card => {
+                        const methodNameEl = card.querySelector('.method-name');
+                        return methodNameEl && methodNameEl.textContent.trim() === entry.methodName;
+                    });
+
+                    if (targetCard) {
+                        const mainContent = document.querySelector('.main-content');
+                        if (mainContent) {
+                            const cardRect = targetCard.getBoundingClientRect();
+                            const mainRect = mainContent.getBoundingClientRect();
+                            const scrollTop = mainContent.scrollTop + cardRect.top - mainRect.top - 80;
+                            mainContent.scrollTo({ top: scrollTop, behavior: 'smooth' });
+                        } else {
+                            targetCard.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                        }
+                    }
+                }
+
+                // Open the method modal so the loaded invocation can be edited/reinvoked.
+                openMethodModal(method);
                 
                 // Fill in arguments if present
                 setTimeout(() => {
@@ -78,16 +103,11 @@ function loadFromHistory(id) {
                         const argValues = entry.arguments;
                         textareas.forEach((textarea, index) => {
                             if (argValues[index] !== undefined) {
-                                if (typeof argValues[index] === 'object') {
-                                    textarea.value = JSON.stringify(argValues[index], null, 2);
-                                } else {
-                                    textarea.value = String(argValues[index]);
-                                }
+                                textarea.value = JSON.stringify(argValues[index], null, 2);
                                 autoResizeTextarea(textarea);
                             }
                         });
                     }
-                    addLog('info', `Loaded method invocation from history: ${entry.hubName}.${entry.methodName}`);
                 }, 100);
             }
         }, 100);
@@ -331,8 +351,6 @@ async function loadHubs() {
         const currentPath = window.location.pathname.replace(/\/$/, ''); // Remove trailing slash
         const hubsUrl = `${currentPath}/hubs`;
         
-        console.log('Fetching hubs from:', hubsUrl);
-        
         const response = await fetch(hubsUrl);
         if (!response.ok) {
             throw new Error(`HTTP error! status: ${response.status}`);
@@ -345,8 +363,6 @@ async function loadHubs() {
         }
         
         hubsData = data.hubs || [];
-        
-        console.log('Loaded hubs:', hubsData.length);
         
         renderHubsList(hubsData);
     } catch (error) {
@@ -386,7 +402,7 @@ function renderHubsList(hubs) {
         }
         
         return `
-        <div class="hub-item" onclick="selectHub('${escapeHtml(hub.name)}')"${displayStyle}>
+        <div class="hub-item" data-hub-name="${encodeURIComponent(hub.name)}" onclick="selectHub('${escapeHtml(hub.name)}')"${displayStyle}>
             <div class="hub-item-header">
                 <span class="hub-name">
                     ${escapeHtml(hub.name)}
@@ -410,7 +426,9 @@ function selectHub(hubName) {
     document.querySelectorAll('.hub-item').forEach(item => {
         item.classList.remove('active');
     });
-    event.target.closest('.hub-item')?.classList.add('active');
+    const encodedHubName = encodeURIComponent(hubName);
+    const activeHubItem = document.querySelector(`.hub-item[data-hub-name="${encodedHubName}"]`);
+    activeHubItem?.classList.add('active');
 
     // Show hub details
     document.getElementById('welcomeScreen').style.display = 'none';
@@ -688,7 +706,6 @@ async function createHubConnection(hub, hubUrl) {
 async function connectToHub() {
     const hubUrl = document.getElementById('hubUrl').value;
     
-    console.log('Connecting to hub at:', hubUrl);
     try {
         addLog('info', `Connecting to ${currentHub.name}...`);
         
