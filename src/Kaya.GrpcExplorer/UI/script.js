@@ -954,20 +954,7 @@ async function startStream(serviceName, methodIndex) {
         const config = window.KayaGrpcExplorerConfig || {}
         const routePrefix = config.routePrefix || '/grpc-explorer'
 
-        const authHeaders = getAuthHeaders()
-        const metadata = {}
-        Object.entries(authHeaders).forEach(([k, v]) => { metadata[k.toLowerCase()] = v })
-
-        // Collect custom metadata rows
-        const metadataContainer = document.getElementById(`metadata-${methodIdentifier}`)
-        if (metadataContainer) {
-            metadataContainer.querySelectorAll('.metadata-row').forEach(row => {
-                const inputs = row.querySelectorAll('.metadata-input')
-                if (inputs.length >= 2 && inputs[0].value) {
-                    metadata[inputs[0].value.toLowerCase()] = inputs[1].value
-                }
-            })
-        }
+        const metadata = collectMethodMetadata(methodIdentifier)
 
         const body = {
             serverAddress: currentServerAddress,
@@ -1029,12 +1016,27 @@ async function startStream(serviceName, methodIndex) {
             }
         }
 
-        activeStreams[methodIdentifier] = { sessionId, eventSource: evtSource }
+        activeStreams[methodIdentifier] = {
+            sessionId,
+            eventSource: evtSource,
+            serviceName,
+            methodName: method.methodName,
+            methodType: method.methodType,
+            metadata
+        }
         setStreamStatus(methodIdentifier, 'streaming', 'Streaming')
         setStreamButtonsActive(methodIdentifier, method.methodType)
 
-        // For server streaming, log the sent request
+        // For server streaming, record and log the request used to start the stream.
         if (method.methodType === 1) {
+            addToHistory({
+                serverAddress: currentServerAddress,
+                serviceName,
+                methodName: method.methodName,
+                requestJson,
+                metadata,
+                methodType: getMethodTypeString(method.methodType)
+            })
             appendStreamLog(methodIdentifier, 'sent', requestJson)
         }
 
@@ -1066,6 +1068,16 @@ async function sendStreamMessage(methodIdentifier) {
             appendStreamLog(methodIdentifier, 'error', `Send failed: ${err.error}`)
             return
         }
+
+        // For client/bidi streams, create one history entry per sent message.
+        addToHistory({
+            serverAddress: currentServerAddress,
+            serviceName: stream.serviceName,
+            methodName: stream.methodName,
+            requestJson: messageJson,
+            metadata: stream.metadata || {},
+            methodType: getMethodTypeString(stream.methodType)
+        })
 
         appendStreamLog(methodIdentifier, 'sent', messageJson)
     } catch (err) {
@@ -1322,24 +1334,7 @@ async function invokeMethod(serviceName, methodIndex) {
         const config = window.KayaGrpcExplorerConfig || {}
         const routePrefix = config.routePrefix || '/grpc-explorer'
         
-        const authHeaders = getAuthHeaders()
-        const metadata = {}
-        
-        // Convert auth headers to metadata
-        Object.entries(authHeaders).forEach(([key, value]) => {
-            metadata[key.toLowerCase()] = value
-        })
-
-        // Merge custom metadata rows from the editor
-        const metadataContainer = document.getElementById(`metadata-${methodIdentifier}`)
-        if (metadataContainer) {
-            metadataContainer.querySelectorAll('.metadata-row').forEach(row => {
-                const inputs = row.querySelectorAll('input')
-                if (inputs.length === 2 && inputs[0].value.trim()) {
-                    metadata[inputs[0].value.trim().toLowerCase()] = inputs[1].value
-                }
-            })
-        }
+        const metadata = collectMethodMetadata(methodIdentifier)
         
         const requestBody = {
             serverAddress: currentServerAddress,
@@ -1473,6 +1468,27 @@ function addMetadata(methodIdentifier) {
         <button class="btn btn-outline btn-sm" onclick="this.parentElement.remove()">&times;</button>
     `
     container.appendChild(row)
+}
+
+function collectMethodMetadata(methodIdentifier) {
+    const metadata = {}
+
+    const authHeaders = getAuthHeaders()
+    Object.entries(authHeaders).forEach(([key, value]) => {
+        metadata[key.toLowerCase()] = value
+    })
+
+    const metadataContainer = document.getElementById(`metadata-${methodIdentifier}`)
+    if (metadataContainer) {
+        metadataContainer.querySelectorAll('.metadata-row').forEach(row => {
+            const inputs = row.querySelectorAll('input, .metadata-input')
+            if (inputs.length >= 2 && inputs[0].value.trim()) {
+                metadata[inputs[0].value.trim().toLowerCase()] = inputs[1].value
+            }
+        })
+    }
+
+    return metadata
 }
 
 function getMethodTypeBadgeClass(methodType) {
