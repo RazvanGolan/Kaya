@@ -64,15 +64,9 @@
 }
 
 .badge.bidi-stream {
-  background-color: #e0e7ff;
-  color: #3730a3;
-  border-color: #c7d2fe;
-}
-
-[data-theme="dark"] .badge.bidi-stream {
-  background-color: #312e81;
-  color: #c7d2fe;
-  border-color: #4338ca;
+  background-color: var(--method-bidi-badge-bg);
+  color: var(--method-bidi-badge-text);
+  border-color: var(--method-bidi-badge-border);
 }
 
 .methods-list {
@@ -410,56 +404,32 @@
 .stream-status--idle {
   background: var(--bg-secondary);
   color: var(--text-secondary);
-  border: 1px solid var(--border-color);
+  border: 1px solid var(--border-primary);
 }
 
 .stream-status--connecting {
-  background: #fef3c7;
-  color: #92400e;
-  border: 1px solid #fcd34d;
+  background: var(--stream-status-connecting-bg);
+  color: var(--stream-status-connecting-text);
+  border: 1px solid var(--stream-status-connecting-border);
 }
 
 .stream-status--streaming {
-  background: #d1fae5;
-  color: #065f46;
-  border: 1px solid #6ee7b7;
+  background: var(--stream-status-streaming-bg);
+  color: var(--stream-status-streaming-text);
+  border: 1px solid var(--stream-status-streaming-border);
   animation: stream-pulse 2s ease-in-out infinite;
 }
 
 .stream-status--complete {
-  background: #dbeafe;
-  color: #1e40af;
-  border: 1px solid #93c5fd;
+  background: var(--stream-status-complete-bg);
+  color: var(--stream-status-complete-text);
+  border: 1px solid var(--stream-status-complete-border);
 }
 
 .stream-status--error {
-  background: #fee2e2;
-  color: #991b1b;
-  border: 1px solid #fca5a5;
-}
-
-[data-theme="dark"] .stream-status--connecting {
-  background: #451a03;
-  color: #fcd34d;
-  border-color: #78350f;
-}
-
-[data-theme="dark"] .stream-status--streaming {
-  background: #022c22;
-  color: #6ee7b7;
-  border-color: #065f46;
-}
-
-[data-theme="dark"] .stream-status--complete {
-  background: #1e3a5f;
-  color: #93c5fd;
-  border-color: #1e40af;
-}
-
-[data-theme="dark"] .stream-status--error {
-  background: #450a0a;
-  color: #fca5a5;
-  border-color: #991b1b;
+  background: var(--stream-status-error-bg);
+  color: var(--stream-status-error-text);
+  border: 1px solid var(--stream-status-error-border);
 }
 
 @keyframes stream-pulse {
@@ -476,9 +446,9 @@
 }
 
 .btn-danger {
-  background-color: #dc2626;
-  color: #fff;
-  border: 1px solid #b91c1c;
+  background-color: var(--action-danger-bg);
+  color: var(--text-on-accent);
+  border: 1px solid var(--action-danger-hover-bg);
   border-radius: 6px;
   padding: 8px 16px;
   font-size: 13px;
@@ -491,7 +461,7 @@
 }
 
 .btn-danger:hover:not(:disabled) {
-  background-color: #b91c1c;
+  background-color: var(--action-danger-hover-bg);
 }
 
 .btn-danger:disabled,
@@ -503,7 +473,7 @@
 /* Stream log */
 .stream-log {
   margin-top: 14px;
-  border: 1px solid var(--border-color);
+  border: 1px solid var(--border-primary);
   border-radius: 8px;
   overflow-y: auto;
   max-height: 340px;
@@ -521,7 +491,7 @@
 .stream-log-entry {
   display: flex;
   flex-direction: column;
-  border-bottom: 1px solid var(--border-color);
+  border-bottom: 1px solid var(--border-primary);
   padding: 8px 12px;
   gap: 4px;
 }
@@ -531,11 +501,11 @@
 }
 
 .stream-log-entry--sent {
-  border-left: 3px solid #6366f1;
+  border-left: 3px solid var(--stream-log-sent-color);
 }
 
 .stream-log-entry--received {
-  border-left: 3px solid #10b981;
+  border-left: 3px solid var(--stream-log-received-color);
 }
 
 .stream-log-entry--system {
@@ -544,8 +514,8 @@
 }
 
 .stream-log-entry--error {
-  border-left: 3px solid #ef4444;
-  background: var(--error-bg, #fee2e2);
+  border-left: 3px solid var(--stream-log-error-color);
+  background: var(--error-bg);
 }
 
 .stream-log-meta {
@@ -563,9 +533,9 @@
   font-size: 11px;
 }
 
-.stream-log-entry--sent   .stream-log-meta { color: #6366f1; }
-.stream-log-entry--received .stream-log-meta { color: #10b981; }
-.stream-log-entry--error  .stream-log-meta { color: #ef4444; }
+.stream-log-entry--sent   .stream-log-meta { color: var(--stream-log-sent-color); }
+.stream-log-entry--received .stream-log-meta { color: var(--stream-log-received-color); }
+.stream-log-entry--error  .stream-log-meta { color: var(--stream-log-error-color); }
 
 .stream-log-time {
   margin-left: auto;
@@ -588,7 +558,7 @@
   margin-left: 6px;
   padding: 1px 4px;
   background: none;
-  border: 1px solid var(--border-color);
+  border: 1px solid var(--border-primary);
   border-radius: 4px;
   cursor: pointer;
   color: var(--text-secondary);
@@ -619,7 +589,7 @@
   align-items: center;
   gap: 8px;
   padding: 6px 12px;
-  border: 1px solid var(--border-color);
+  border: 1px solid var(--border-primary);
   border-top: none;
   border-radius: 0 0 8px 8px;
   background: var(--bg-secondary);
@@ -638,8 +608,8 @@
   font-weight: 600;
 }
 
-.stream-stats-sent svg   { color: #6366f1; }
-.stream-stats-received svg { color: #10b981; }
+.stream-stats-sent svg   { color: var(--stream-log-sent-color); }
+.stream-stats-received svg { color: var(--stream-log-received-color); }
 
 .stream-stats-sep {
   opacity: 0.4;

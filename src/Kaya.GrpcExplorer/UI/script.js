@@ -21,6 +21,10 @@ const STORAGE_KEYS = {
 
 const MAX_HISTORY_ENTRIES = 50; // Limit to prevent storage bloat
 
+let currentTheme = getInitialTheme()
+let logoClickCount = 0
+let logoClickTimer = null
+
 // Auto-resize textarea helper
 function autoResizeTextarea(el) {
   if (!el) return;
@@ -81,23 +85,77 @@ function setupTextareaAutoResize(container) {
 }
 
 // Theme Management
-function initializeTheme() {
+function getInitialTheme() {
     const config = window.KayaGrpcExplorerConfig || { defaultTheme: 'light' }
-    const savedTheme = localStorage.getItem('kayaGrpcTheme') || config.defaultTheme
-    document.documentElement.setAttribute('data-theme', savedTheme)
+    const serverTheme = (config.defaultTheme || 'light').toLowerCase()
+    const fallbackTheme = serverTheme === 'dark' ? 'dark' : 'light'
+    const savedTheme = localStorage.getItem('kayaGrpcTheme')
+
+    if (savedTheme === 'bouquet') {
+        localStorage.setItem('kayaGrpcTheme', 'joker')
+        return 'joker'
+    }
+
+    if (savedTheme === 'light' || savedTheme === 'dark' || savedTheme === 'joker') {
+        return savedTheme
+    }
+
+    return fallbackTheme
+}
+
+function initializeTheme() {
+    document.documentElement.setAttribute('data-theme', currentTheme)
     updateThemeIcons()
 }
 
 function toggleTheme() {
-    const currentTheme = document.documentElement.getAttribute('data-theme')
-    const newTheme = currentTheme === 'light' ? 'dark' : 'light'
-    document.documentElement.setAttribute('data-theme', newTheme)
-    localStorage.setItem('kayaGrpcTheme', newTheme)
+    currentTheme = currentTheme === 'light' ? 'dark' : 'light'
+    document.documentElement.setAttribute('data-theme', currentTheme)
+    localStorage.setItem('kayaGrpcTheme', currentTheme)
     updateThemeIcons()
 }
 
+function handleLogoClick() {
+    logoClickCount++
+
+    // Reset counter if 1 second passes between clicks.
+    if (logoClickTimer) {
+        clearTimeout(logoClickTimer)
+    }
+
+    logoClickTimer = setTimeout(() => {
+        logoClickCount = 0
+    }, 1000)
+
+    if (logoClickCount >= 3) {
+        logoClickCount = 0
+        activateSecret()
+
+        if (logoClickTimer) {
+            clearTimeout(logoClickTimer)
+        }
+    }
+}
+
+function activateSecret() {
+    const brand = document.querySelector('.brand')
+    if (brand) {
+        brand.style.animation = 'secretPulse 0.6s ease-in-out'
+    }
+
+    currentTheme = currentTheme === 'joker' ? 'light' : 'joker'
+    document.documentElement.setAttribute('data-theme', currentTheme)
+    localStorage.setItem('kayaGrpcTheme', currentTheme)
+    updateThemeIcons()
+
+    setTimeout(() => {
+        if (brand) {
+            brand.style.animation = ''
+        }
+    }, 600)
+}
+
 function updateThemeIcons() {
-    const currentTheme = document.documentElement.getAttribute('data-theme')
     const sunIcon = document.querySelector('.sun-icon')
     const moonIcon = document.querySelector('.moon-icon')
     const themeText = document.querySelector('.theme-text')
@@ -445,6 +503,11 @@ document.addEventListener("DOMContentLoaded", async () => {
     await loadServices()
     
     // Event listeners
+    const brandElement = document.querySelector('.brand')
+    if (brandElement) {
+        brandElement.addEventListener('click', handleLogoClick)
+    }
+
     document.getElementById('searchInput').addEventListener('input', filterServices)
     document.getElementById('themeToggleBtn').addEventListener('click', toggleTheme)
     document.getElementById('serverConfigBtn').addEventListener('click', () => showModal('serverModal'))
