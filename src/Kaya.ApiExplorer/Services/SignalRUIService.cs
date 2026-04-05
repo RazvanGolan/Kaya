@@ -23,6 +23,7 @@ public class SignalRUIService(KayaApiExplorerOptions options) : ISignalRUIServic
             var htmlContent = await ReadEmbeddedResourceAsync(assembly, "UI.SignalR.signalr-debug.html");
             var mainCssContent = await ReadEmbeddedResourceAsync(assembly, "UI.ApiExplorer.styles.css");
             var signalRCssContent = await ReadEmbeddedResourceAsync(assembly, "UI.SignalR.signalr-debug.css");
+            var kayaStorageJsContent = await ReadEmbeddedResourceAsync(assembly, "UI.Shared.kaya-storage.js");
             var authJsContent = await ReadEmbeddedResourceAsync(assembly, "UI.ApiExplorer.auth.js");
             var jsContent = await ReadEmbeddedResourceAsync(assembly, "UI.SignalR.signalr-debug.js");
             
@@ -36,7 +37,7 @@ public class SignalRUIService(KayaApiExplorerOptions options) : ISignalRUIServic
             var finalHtml = htmlContent
                 .Replace("<link rel=\"stylesheet\" href=\"../styles.css\">", $"<style>{mainCssContent}</style>")
                 .Replace("<link rel=\"stylesheet\" href=\"signalr-debug.css\">", $"<style>{signalRCssContent}</style>")
-                .Replace("<script src=\"signalr-debug.js\"></script>", $"{themeScript}<script>{authJsContent}</script><script>{jsContent}</script>")
+                .Replace("<script src=\"signalr-debug.js\"></script>", $"{themeScript}<script>{kayaStorageJsContent}</script><script>{authJsContent}</script><script>{jsContent}</script>")
                 .Replace("<link rel=\"icon\" type=\"image/svg+xml\" href=\"icon.svg\">", $"<link rel=\"icon\" type=\"image/svg+xml\" href=\"data:image/svg+xml;base64,{svgBase64}\">");
 
             return finalHtml;

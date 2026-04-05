@@ -12,6 +12,19 @@ let activeStreams = {}
 // Per-method message counters (persist across stream start/end until log is cleared)
 let streamStats = {} // methodIdentifier -> { sent: 0, received: 0 }
 
+// Storage keys for KayaStorage
+const STORAGE_KEYS = {
+  THEME: 'grpcexplorer_theme',
+    HISTORY: 'grpcexplorer_history',
+    HISTORY_PANEL_COLLAPSED: 'grpcexplorer_history_panel_collapsed'
+};
+
+const MAX_HISTORY_ENTRIES = 50; // Limit to prevent storage bloat
+
+let currentTheme = getInitialTheme()
+let logoClickCount = 0
+let logoClickTimer = null
+
 // Auto-resize textarea helper
 function autoResizeTextarea(el) {
   if (!el) return;
@@ -44,17 +57,20 @@ function serializeEmptied(value, indent) {
     const pad = '  '.repeat(indent);
     const innerPad = '  '.repeat(indent + 1);
     if (Array.isArray(value)) {
-        return `[\n${innerPad}\n${pad}]`;
+        if (value.length === 0) return '[]';
+        const firstItem = serializeEmptied(value[0], indent + 1);
+        return `[\n${innerPad}${firstItem}\n${pad}]`;
     }
     if (typeof value === 'object' && value !== null) {
         const entries = Object.entries(value);
         if (entries.length === 0) return '{}';
         const lines = entries.map(([k, v]) => {
-            const val = (typeof v === 'object' && v !== null) ? serializeEmptied(v, indent + 1) : '';
+            const val = serializeEmptied(v, indent + 1);
             return `${innerPad}"${k}": ${val}`;
         });
         return `{\n${lines.join(',\n')}\n${pad}}`;
     }
+    if (typeof value === 'string') return '""';
     return '';
 }
 
@@ -72,23 +88,77 @@ function setupTextareaAutoResize(container) {
 }
 
 // Theme Management
-function initializeTheme() {
+function getInitialTheme() {
     const config = window.KayaGrpcExplorerConfig || { defaultTheme: 'light' }
-    const savedTheme = localStorage.getItem('kayaGrpcTheme') || config.defaultTheme
-    document.documentElement.setAttribute('data-theme', savedTheme)
+    const serverTheme = (config.defaultTheme || 'light').toLowerCase()
+    const fallbackTheme = serverTheme === 'dark' ? 'dark' : 'light'
+    const savedTheme = localStorage.getItem('kayaGrpcTheme')
+
+    if (savedTheme === 'bouquet') {
+        localStorage.setItem('kayaGrpcTheme', 'joker')
+        return 'joker'
+    }
+
+    if (savedTheme === 'light' || savedTheme === 'dark' || savedTheme === 'joker') {
+        return savedTheme
+    }
+
+    return fallbackTheme
+}
+
+function initializeTheme() {
+    document.documentElement.setAttribute('data-theme', currentTheme)
     updateThemeIcons()
 }
 
 function toggleTheme() {
-    const currentTheme = document.documentElement.getAttribute('data-theme')
-    const newTheme = currentTheme === 'light' ? 'dark' : 'light'
-    document.documentElement.setAttribute('data-theme', newTheme)
-    localStorage.setItem('kayaGrpcTheme', newTheme)
+    currentTheme = currentTheme === 'light' ? 'dark' : 'light'
+    document.documentElement.setAttribute('data-theme', currentTheme)
+    localStorage.setItem('kayaGrpcTheme', currentTheme)
     updateThemeIcons()
 }
 
+function handleLogoClick() {
+    logoClickCount++
+
+    // Reset counter if 1 second passes between clicks.
+    if (logoClickTimer) {
+        clearTimeout(logoClickTimer)
+    }
+
+    logoClickTimer = setTimeout(() => {
+        logoClickCount = 0
+    }, 1000)
+
+    if (logoClickCount >= 3) {
+        logoClickCount = 0
+        activateSecret()
+
+        if (logoClickTimer) {
+            clearTimeout(logoClickTimer)
+        }
+    }
+}
+
+function activateSecret() {
+    const brand = document.querySelector('.brand')
+    if (brand) {
+        brand.style.animation = 'secretPulse 0.6s ease-in-out'
+    }
+
+    currentTheme = currentTheme === 'joker' ? 'light' : 'joker'
+    document.documentElement.setAttribute('data-theme', currentTheme)
+    localStorage.setItem('kayaGrpcTheme', currentTheme)
+    updateThemeIcons()
+
+    setTimeout(() => {
+        if (brand) {
+            brand.style.animation = ''
+        }
+    }, 600)
+}
+
 function updateThemeIcons() {
-    const currentTheme = document.documentElement.getAttribute('data-theme')
     const sunIcon = document.querySelector('.sun-icon')
     const moonIcon = document.querySelector('.moon-icon')
     const themeText = document.querySelector('.theme-text')
@@ -102,6 +172,291 @@ function updateThemeIcons() {
         if (moonIcon) moonIcon.style.display = 'block'
         if (themeText) themeText.textContent = 'Dark'
     }
+}
+
+// ============================================
+// REQUEST HISTORY MANAGEMENT
+// ============================================
+
+/**
+ * Load request history from storage
+ * @returns {Array} Array of history entries
+ */
+function loadHistory() {
+  const history = KayaStorage.get(STORAGE_KEYS.HISTORY);
+  return Array.isArray(history) ? history : [];
+}
+
+/**
+ * Save history to storage
+ * @param {Array} history - Array of history entries
+ */
+function saveHistory(history) {
+  // Limit entries
+  const trimmed = history.slice(0, MAX_HISTORY_ENTRIES);
+  KayaStorage.set(STORAGE_KEYS.HISTORY, trimmed, { ttlType: 'history' });
+}
+
+/**
+ * Add a gRPC request to history
+ * @param {Object} request - Request details
+ * @param {Object} response - Response details (optional)
+ */
+function addToHistory(request, response = null) {
+  const history = loadHistory();
+  
+  const entry = {
+    id: generateUUID(),
+    timestamp: Date.now(),
+    type: 'grpc',
+    grpc: {
+      serverAddress: request.serverAddress,
+      serviceName: request.serviceName,
+      methodName: request.methodName,
+      requestJson: request.requestJson,
+      metadata: request.metadata || {},
+      methodType: request.methodType || 'Unary'
+    },
+    response: response ? {
+      statusCode: response.statusCode || 0,
+      statusText: response.statusText || 'OK',
+      durationMs: response.durationMs,
+      preview: response.body ? response.body.substring(0, 200) : ''
+    } : null,
+    displayName: `${request.serviceName.split('.').pop()}/${request.methodName}`
+  };
+  
+  // Add to beginning (most recent first)
+  history.unshift(entry);
+  
+  saveHistory(history);
+  renderHistoryPanel();
+}
+
+/**
+ * Remove a history entry by ID
+ * @param {string} id - Entry ID to remove
+ */
+function removeFromHistory(id) {
+  const history = loadHistory();
+  const filtered = history.filter(entry => entry.id !== id);
+  saveHistory(filtered);
+  renderHistoryPanel();
+}
+
+/**
+ * Clear all history
+ */
+function clearHistory() {
+    if (confirm('Clear all request history?')) {
+        KayaStorage.remove(STORAGE_KEYS.HISTORY);
+        renderHistoryPanel();
+    }
+}
+
+function toggleHistoryPanel() {
+    const panel = document.getElementById('history-panel');
+    if (panel) {
+        panel.classList.toggle('collapsed');
+        const isCollapsed = panel.classList.contains('collapsed');
+        KayaStorage.set(STORAGE_KEYS.HISTORY_PANEL_COLLAPSED, isCollapsed, { ttlType: 'preference' });
+    }
+}
+
+function getSavedHistoryPanelCollapsedState() {
+    const saved = KayaStorage.get(STORAGE_KEYS.HISTORY_PANEL_COLLAPSED);
+    return typeof saved === 'boolean' ? saved : true;
+}
+
+function applyHistoryPanelCollapsedState(isCollapsed) {
+    const panel = document.getElementById('history-panel');
+    if (panel) {
+        panel.classList.toggle('collapsed', isCollapsed);
+    }
+}
+
+/**
+ * Load a history entry into the method form
+ * @param {string} id - Entry ID to load
+ */
+async function loadHistoryEntry(id) {
+  const history = loadHistory();
+  const entry = history.find(e => e.id === id);
+  
+  if (!entry || entry.type !== 'grpc') return;
+  
+  // Find and expand the service/method in the UI
+  const serviceName = entry.grpc.serviceName;
+  const methodName = entry.grpc.methodName;
+
+    // Restore target server to match original invocation
+    let serverChanged = false;
+    if (entry.grpc.serverAddress && entry.grpc.serverAddress !== currentServerAddress) {
+        currentServerAddress = entry.grpc.serverAddress;
+        const serverAddressInput = document.getElementById('serverAddress');
+        if (serverAddressInput) {
+            serverAddressInput.value = currentServerAddress;
+        }
+        sessionStorage.setItem('grpcServerAddress', currentServerAddress);
+        serverChanged = true;
+    }
+
+    // If history points to a different server, refresh services before searching.
+    if (serverChanged) {
+        await loadServices();
+    }
+  
+  // Find the service
+  const service = services.find(s => s.serviceName === serviceName);
+  if (!service) {
+    alert(`Service "${serviceName}" not found in current server. Please connect to the correct server first.`);
+    return;
+  }
+  
+  // Find the method index
+    const methodIndex = service.methods.findIndex(m => m.methodName === methodName || m.name === methodName);
+  if (methodIndex === -1) {
+    alert(`Method "${methodName}" not found in service "${serviceName}".`);
+    return;
+  }
+  
+    // Select the service, switch to Try tab, and expand the method.
+    const methodIdentifier = `${serviceName}-${methodIndex}`;
+  selectedService = serviceName;
+    methodActiveTabs[methodIdentifier] = 'try';
+
+    if (!expandedMethods.includes(methodIdentifier)) {
+        expandedMethods.push(methodIdentifier);
+    }
+
+  renderServices();
+    renderMethods();
+  
+  // Wait for DOM update then populate the request body
+  setTimeout(() => {
+        const textareaId = `request-${methodIdentifier}`;
+    const textarea = document.getElementById(textareaId);
+        if (textarea && entry.grpc.requestJson !== null && entry.grpc.requestJson !== undefined) {
+      textarea.value = entry.grpc.requestJson;
+      autoResizeTextarea(textarea);
+    }
+
+        // Restore custom metadata rows
+        const metadataContainer = document.getElementById(`metadata-${methodIdentifier}`);
+        if (metadataContainer) {
+            metadataContainer.innerHTML = '';
+            const metadataEntries = Object.entries(entry.grpc.metadata || {});
+            metadataEntries.forEach(([key, value]) => {
+                addMetadata(methodIdentifier);
+                const rows = metadataContainer.querySelectorAll('.metadata-row');
+                const row = rows[rows.length - 1];
+                const inputs = row ? row.querySelectorAll('input') : [];
+                if (inputs.length === 2) {
+                    inputs[0].value = key;
+                    inputs[1].value = value;
+                }
+            });
+        }
+    
+    // Scroll to the method
+        const methodElement = document.getElementById(`content-${methodIdentifier}`)?.closest('.method-card');
+    if (methodElement) {
+      methodElement.scrollIntoView({ behavior: 'smooth' });
+    }
+  }, 100);
+}
+
+/**
+ * Generate a UUID v4
+ * @returns {string}
+ */
+function generateUUID() {
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+    const r = Math.random() * 16 | 0;
+    const v = c === 'x' ? r : (r & 0x3 | 0x8);
+    return v.toString(16);
+  });
+}
+
+/**
+ * Format timestamp as relative time
+ * @param {number} timestamp - Unix timestamp in milliseconds
+ * @returns {string}
+ */
+function formatRelativeTime(timestamp) {
+  const seconds = Math.floor((Date.now() - timestamp) / 1000);
+  
+  if (seconds < 60) return 'just now';
+  if (seconds < 3600) return `${Math.floor(seconds / 60)}m ago`;
+  if (seconds < 86400) return `${Math.floor(seconds / 3600)}h ago`;
+  if (seconds < 604800) return `${Math.floor(seconds / 86400)}d ago`;
+  
+  return new Date(timestamp).toLocaleDateString();
+}
+
+/**
+ * Get CSS class for gRPC method type badge (for history panel)
+ * @param {string} methodType - gRPC method type string
+ * @returns {string}
+ */
+function getHistoryMethodTypeBadgeClass(methodType) {
+  const typeClasses = {
+    'Unary': 'method-unary',
+    'ServerStreaming': 'method-server-stream',
+    'ClientStreaming': 'method-client-stream',
+    'DuplexStreaming': 'method-duplex-stream'
+  };
+  return typeClasses[methodType] || 'method-unary';
+}
+
+/**
+ * Convert method type number to string
+ * @param {number} methodType - gRPC method type number
+ * @returns {string}
+ */
+function getMethodTypeString(methodType) {
+  switch (methodType) {
+    case 0: return 'Unary';
+    case 1: return 'ServerStreaming';
+    case 2: return 'ClientStreaming';
+    case 3: return 'DuplexStreaming';
+    default: return 'Unary';
+  }
+}
+
+/**
+ * Render the history panel UI
+ */
+function renderHistoryPanel() {
+  const historyList = document.getElementById('history-list');
+  if (!historyList) return;
+  
+  const history = loadHistory();
+  
+  if (history.length === 0) {
+    historyList.innerHTML = '<div class="history-empty">No request history yet.<br>Invoke a method to see it here.</div>';
+    return;
+  }
+  
+    historyList.innerHTML = history.map(entry => `
+    <div class="history-item" data-id="${entry.id}">
+            <div class="history-item-header">
+        <span class="history-method ${getHistoryMethodTypeBadgeClass(entry.grpc.methodType)}">${entry.grpc.methodType?.charAt(0) || 'U'}</span>
+        <span class="history-url" title="${entry.grpc.serviceName}/${entry.grpc.methodName}">${entry.displayName}</span>
+                <button class="history-delete" onclick="event.stopPropagation(); removeFromHistory('${entry.id}')" title="Remove from history">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <line x1="18" y1="6" x2="6" y2="18"></line>
+                        <line x1="6" y1="6" x2="18" y2="18"></line>
+                    </svg>
+                </button>
+      </div>
+      <div class="history-item-meta">
+        <span class="history-time">${formatRelativeTime(entry.timestamp)}</span>
+        ${entry.response ? `<span class="history-status ${entry.response.statusCode !== 0 ? 'status-error' : 'status-success'}">${entry.response.statusCode === 0 ? 'OK' : entry.response.statusCode}</span>` : ''}
+      </div>
+            <button class="history-load-btn" onclick="loadHistoryEntry('${entry.id}')">Load</button>
+    </div>
+  `).join('');
 }
 
 // Modal Management
@@ -135,7 +490,11 @@ function initializeModals() {
 // Initialize the application
 document.addEventListener("DOMContentLoaded", async () => {
     initializeTheme()
-    loadAuthConfiguration('kayaGrpcAuthConfig')
+    loadAuthConfiguration('grpcexplorer_auth')
+    applyHistoryPanelCollapsedState(getSavedHistoryPanelCollapsedState())
+    
+    // Initialize history panel
+    renderHistoryPanel()
     
     // Get config
     const config = window.KayaGrpcExplorerConfig || {}
@@ -147,6 +506,11 @@ document.addEventListener("DOMContentLoaded", async () => {
     await loadServices()
     
     // Event listeners
+    const brandElement = document.querySelector('.brand')
+    if (brandElement) {
+        brandElement.addEventListener('click', handleLogoClick)
+    }
+
     document.getElementById('searchInput').addEventListener('input', filterServices)
     document.getElementById('themeToggleBtn').addEventListener('click', toggleTheme)
     document.getElementById('serverConfigBtn').addEventListener('click', () => showModal('serverModal'))
@@ -156,8 +520,8 @@ document.addEventListener("DOMContentLoaded", async () => {
     document.getElementById('closeAuth').addEventListener('click', () => hideModal('authModal'))
     
     document.getElementById('saveServerBtn').addEventListener('click', saveServerConfig)
-    document.getElementById('saveAuthBtn').addEventListener('click', () => saveAuthConfiguration('kayaGrpcAuthConfig', 'authModal'))
-    document.getElementById('clearAuthBtn').addEventListener('click', () => clearAuthConfiguration('kayaGrpcAuthConfig', 'authModal'))
+    document.getElementById('saveAuthBtn').addEventListener('click', () => saveAuthConfiguration('grpcexplorer_auth', 'authModal'))
+    document.getElementById('clearAuthBtn').addEventListener('click', () => clearAuthConfiguration('grpcexplorer_auth', 'authModal'))
     
     initializeModals()
 })
@@ -593,20 +957,7 @@ async function startStream(serviceName, methodIndex) {
         const config = window.KayaGrpcExplorerConfig || {}
         const routePrefix = config.routePrefix || '/grpc-explorer'
 
-        const authHeaders = getAuthHeaders()
-        const metadata = {}
-        Object.entries(authHeaders).forEach(([k, v]) => { metadata[k.toLowerCase()] = v })
-
-        // Collect custom metadata rows
-        const metadataContainer = document.getElementById(`metadata-${methodIdentifier}`)
-        if (metadataContainer) {
-            metadataContainer.querySelectorAll('.metadata-row').forEach(row => {
-                const inputs = row.querySelectorAll('.metadata-input')
-                if (inputs.length >= 2 && inputs[0].value) {
-                    metadata[inputs[0].value.toLowerCase()] = inputs[1].value
-                }
-            })
-        }
+        const metadata = collectMethodMetadata(methodIdentifier)
 
         const body = {
             serverAddress: currentServerAddress,
@@ -668,12 +1019,27 @@ async function startStream(serviceName, methodIndex) {
             }
         }
 
-        activeStreams[methodIdentifier] = { sessionId, eventSource: evtSource }
+        activeStreams[methodIdentifier] = {
+            sessionId,
+            eventSource: evtSource,
+            serviceName,
+            methodName: method.methodName,
+            methodType: method.methodType,
+            metadata
+        }
         setStreamStatus(methodIdentifier, 'streaming', 'Streaming')
         setStreamButtonsActive(methodIdentifier, method.methodType)
 
-        // For server streaming, log the sent request
+        // For server streaming, record and log the request used to start the stream.
         if (method.methodType === 1) {
+            addToHistory({
+                serverAddress: currentServerAddress,
+                serviceName,
+                methodName: method.methodName,
+                requestJson,
+                metadata,
+                methodType: getMethodTypeString(method.methodType)
+            })
             appendStreamLog(methodIdentifier, 'sent', requestJson)
         }
 
@@ -705,6 +1071,16 @@ async function sendStreamMessage(methodIdentifier) {
             appendStreamLog(methodIdentifier, 'error', `Send failed: ${err.error}`)
             return
         }
+
+        // For client/bidi streams, create one history entry per sent message.
+        addToHistory({
+            serverAddress: currentServerAddress,
+            serviceName: stream.serviceName,
+            methodName: stream.methodName,
+            requestJson: messageJson,
+            metadata: stream.metadata || {},
+            methodType: getMethodTypeString(stream.methodType)
+        })
 
         appendStreamLog(methodIdentifier, 'sent', messageJson)
     } catch (err) {
@@ -955,17 +1331,13 @@ async function invokeMethod(serviceName, methodIndex) {
         visible: true
     };
     
+    const startTime = performance.now();
+    
     try {
         const config = window.KayaGrpcExplorerConfig || {}
         const routePrefix = config.routePrefix || '/grpc-explorer'
         
-        const authHeaders = getAuthHeaders()
-        const metadata = {}
-        
-        // Convert auth headers to metadata
-        Object.entries(authHeaders).forEach(([key, value]) => {
-            metadata[key.toLowerCase()] = value
-        })
+        const metadata = collectMethodMetadata(methodIdentifier)
         
         const requestBody = {
             serverAddress: currentServerAddress,
@@ -985,12 +1357,18 @@ async function invokeMethod(serviceName, methodIndex) {
         })
         
         const result = await response.json()
+        const endTime = performance.now();
+        const duration = result.durationMs || Math.round(endTime - startTime);
         
         if (result.success) {
             const responseJson = result.responseJson
             const responseSize = new Blob([responseJson]).size
             
-            const duration = result.durationMs || 0
+            // Add to history
+            addToHistory(
+              { serverAddress: currentServerAddress, serviceName, methodName: method.methodName, requestJson, metadata, methodType: getMethodTypeString(method.methodType) },
+              { statusCode: 0, statusText: 'OK', durationMs: duration, body: responseJson }
+            );
             
             const successHtml = `
                 ${generatePerformanceHtml(duration, requestSize, responseSize)}
@@ -1025,6 +1403,12 @@ async function invokeMethod(serviceName, methodIndex) {
                 visible: true
             };
         } else {
+            // Add error to history
+            addToHistory(
+              { serverAddress: currentServerAddress, serviceName, methodName: method.methodName, requestJson, metadata, methodType: getMethodTypeString(method.methodType) },
+              { statusCode: 1, statusText: result.errorMessage, durationMs: duration, body: result.errorMessage }
+            );
+            
             const errorHtml = `
                 <div class="server-status disconnected">
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -1046,6 +1430,15 @@ async function invokeMethod(serviceName, methodIndex) {
             };
         }
     } catch (error) {
+        const endTime = performance.now();
+        const duration = Math.round(endTime - startTime);
+        
+        // Add network error to history
+        addToHistory(
+          { serverAddress: currentServerAddress, serviceName, methodName: method.methodName, requestJson, metadata: {}, methodType: getMethodTypeString(method.methodType) },
+          { statusCode: -1, statusText: 'Network Error', durationMs: duration, body: error.message }
+        );
+        
         const errorHtml = `
             <div class="server-status disconnected">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -1078,6 +1471,27 @@ function addMetadata(methodIdentifier) {
         <button class="btn btn-outline btn-sm" onclick="this.parentElement.remove()">&times;</button>
     `
     container.appendChild(row)
+}
+
+function collectMethodMetadata(methodIdentifier) {
+    const metadata = {}
+
+    const authHeaders = getAuthHeaders()
+    Object.entries(authHeaders).forEach(([key, value]) => {
+        metadata[key.toLowerCase()] = value
+    })
+
+    const metadataContainer = document.getElementById(`metadata-${methodIdentifier}`)
+    if (metadataContainer) {
+        metadataContainer.querySelectorAll('.metadata-row').forEach(row => {
+            const inputs = row.querySelectorAll('input, .metadata-input')
+            if (inputs.length >= 2 && inputs[0].value.trim()) {
+                metadata[inputs[0].value.trim().toLowerCase()] = inputs[1].value
+            }
+        })
+    }
+
+    return metadata
 }
 
 function getMethodTypeBadgeClass(methodType) {
