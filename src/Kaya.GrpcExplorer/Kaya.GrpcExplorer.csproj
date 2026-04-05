@@ -1,12 +1,12 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
 <PropertyGroup>
-    <TargetFramework>net9.0</TargetFramework>
+    <TargetFrameworks>net8.0;net9.0</TargetFrameworks>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
     <PackageId>Kaya.GrpcExplorer</PackageId>
-    <PackageVersion>1.1.0</PackageVersion>
+    <PackageVersion>1.2.0</PackageVersion>
     <Authors>RazvanGolan</Authors>
     <Company>RazvanGolan</Company>
     <Product>Kaya gRPC Explorer</Product>
@@ -18,7 +18,7 @@
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
     <PackageReadmeFile>README.md</PackageReadmeFile>
     <PackageIcon>icon.png</PackageIcon>
-    <PackageReleaseNotes>Added interactive SSE-based streaming for Server Streaming, Client Streaming, and Bidirectional Streaming RPC methods</PackageReleaseNotes>
+    <PackageReleaseNotes>Added request history, a clear examples button, local storage TTL support, and CSS variable refactoring.</PackageReleaseNotes>
   </PropertyGroup>  
 
   <ItemGroup>

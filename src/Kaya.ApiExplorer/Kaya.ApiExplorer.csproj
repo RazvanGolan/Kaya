@@ -6,7 +6,7 @@
     <Nullable>enable</Nullable>
     <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
     <PackageId>Kaya.ApiExplorer</PackageId>
-    <PackageVersion>2.2.0</PackageVersion>
+    <PackageVersion>2.3.0</PackageVersion>
     <Authors>RazvanGolan</Authors>
     <Company>RazvanGolan</Company>
     <Product>Kaya API Explorer</Product>
@@ -18,7 +18,7 @@
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
     <PackageReadmeFile>README.md</PackageReadmeFile>
     <PackageIcon>icon.png</PackageIcon>
-    <PackageReleaseNotes>Version 2.2.0: Added Data Annotations support on models, Minimal APIs support, cookie authentication, and multiple response codes via [ProducesResponseType]. Improvements include a nested parameter tree view, a clear examples button, improved type example generation, and a fully valid OpenAPI 3.0 export format.</PackageReleaseNotes>
+    <PackageReleaseNotes>Version 2.3.0: Added request history and TTL support for local storage. Fixes include selectable response textarea, improved examples for ushort and related numeric types, a single shared theme key between API Explorer and SignalR Debug, and clear values behavior improvements.</PackageReleaseNotes>
   </PropertyGroup>  
   <ItemGroup>
     <FrameworkReference Include="Microsoft.AspNetCore.App" />

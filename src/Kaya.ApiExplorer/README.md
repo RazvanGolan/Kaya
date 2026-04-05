@@ -11,6 +11,7 @@ A lightweight, Swagger-like API documentation tool for .NET applications that au
 - **XML Documentation** - Automatically reads and displays your code comments
 - **Code Export** - Generate request snippets in multiple programming languages
 - **Performance Metrics** - Track request duration and response size
+- **Request History** - Save and reload previous requests from the UI for faster retesting
 - **Data Annotations** - Validation constraints from model attributes surfaced in the UI
 - **Multiple Response Codes** - Full `[ProducesResponseType]` support with per-status-code schemas
 

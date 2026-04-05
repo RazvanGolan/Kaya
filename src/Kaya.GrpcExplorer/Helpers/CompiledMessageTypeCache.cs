@@ -12,7 +12,7 @@ public static class CompiledMessageTypeCache
 {
     private static readonly ConcurrentDictionary<string, Type?> _typeCache = new();
     private static bool _assembliesScanned;
-    private static readonly Lock _scanLock = new();
+    private static readonly object _scanLock = new();
     private static Assembly[] _scannedAssemblies = [];
 
     /// <summary>

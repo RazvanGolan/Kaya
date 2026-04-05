@@ -10,6 +10,7 @@ A gRPC service explorer that uses Server Reflection to discover and test gRPC se
 - **Interactive Stream Control** - Start, send messages into, and end client/bidirectional streams directly from the UI
 - **Protobuf Schema** - Automatically generates JSON schemas from Protobuf message definitions
 - **Interactive Testing** - Execute gRPC methods with JSON payloads directly from the browser
+- **Request History** - Review and reuse previous requests directly from the UI
 - **Server Configuration** - Connect to local or remote gRPC servers with custom metadata
 - **Authentication** - Support for metadata-based authentication (Bearer tokens, API keys)
 
