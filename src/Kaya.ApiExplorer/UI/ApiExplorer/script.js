@@ -2534,17 +2534,20 @@ function serializeEmptied(value, indent) {
   const pad = '  '.repeat(indent);
   const innerPad = '  '.repeat(indent + 1);
   if (Array.isArray(value)) {
-    return `[\n${innerPad}\n${pad}]`;
+    if (value.length === 0) return '[]';
+    const firstItem = serializeEmptied(value[0], indent + 1);
+    return `[\n${innerPad}${firstItem}\n${pad}]`;
   }
   if (typeof value === 'object' && value !== null) {
     const entries = Object.entries(value);
     if (entries.length === 0) return '{}';
     const lines = entries.map(([k, v]) => {
-      const val = (typeof v === 'object' && v !== null) ? serializeEmptied(v, indent + 1) : '';
+      const val = serializeEmptied(v, indent + 1);
       return `${innerPad}"${k}": ${val}`;
     });
     return `{\n${lines.join(',\n')}\n${pad}}`;
   }
+  if (typeof value === 'string') return '""';
   return '';
 }
 

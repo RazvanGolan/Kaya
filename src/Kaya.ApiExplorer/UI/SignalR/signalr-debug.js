@@ -7,12 +7,14 @@ let logs = [];
 
 // Storage keys for KayaStorage
 const STORAGE_KEYS = {
-    THEME: 'signalr_theme',
     CONNECTIONS: 'signalr_connections',
     HANDLERS: 'signalr_handlers',
     HISTORY: 'signalr_history',
     HISTORY_PANEL_COLLAPSED: 'signalr_history_panel_collapsed'
 };
+
+const SHARED_THEME_KEY = 'theme';
+const LEGACY_SIGNALR_THEME_KEY = 'signalr_theme';
 
 const MAX_HISTORY_ENTRIES = 50;
 
@@ -202,17 +204,20 @@ function serializeEmptied(value, indent) {
     const pad = '  '.repeat(indent);
     const innerPad = '  '.repeat(indent + 1);
     if (Array.isArray(value)) {
-        return `[\n${innerPad}\n${pad}]`;
+        if (value.length === 0) return '[]';
+        const firstItem = serializeEmptied(value[0], indent + 1);
+        return `[\n${innerPad}${firstItem}\n${pad}]`;
     }
     if (typeof value === 'object' && value !== null) {
         const entries = Object.entries(value);
         if (entries.length === 0) return '{}';
         const lines = entries.map(([k, v]) => {
-            const val = (typeof v === 'object' && v !== null) ? serializeEmptied(v, indent + 1) : '';
+            const val = serializeEmptied(v, indent + 1);
             return `${innerPad}"${k}": ${val}`;
         });
         return `{\n${lines.join(',\n')}\n${pad}}`;
     }
+    if (typeof value === 'string') return '""';
     return '';
 }
 
@@ -252,8 +257,11 @@ document.addEventListener('DOMContentLoaded', () => {
 // Theme Management
 function initializeTheme() {
     const config = window.KayaSignalRDebugConfig || { defaultTheme: 'light' };
-    const savedTheme = KayaStorage.get(STORAGE_KEYS.THEME) || config.defaultTheme;
+    const savedTheme = localStorage.getItem(SHARED_THEME_KEY) || config.defaultTheme;
     document.documentElement.setAttribute('data-theme', savedTheme);
+    localStorage.setItem(SHARED_THEME_KEY, savedTheme);
+    // Migration cleanup: remove old SignalR-specific theme key so only shared theme remains.
+    KayaStorage.remove(LEGACY_SIGNALR_THEME_KEY);
     updateThemeIcons();
 }
 
@@ -261,7 +269,7 @@ function toggleTheme() {
     const currentTheme = document.documentElement.getAttribute('data-theme');
     const newTheme = currentTheme === 'light' ? 'dark' : 'light';
     document.documentElement.setAttribute('data-theme', newTheme);
-    KayaStorage.set(STORAGE_KEYS.THEME, newTheme, { ttlType: 'preference' });
+    localStorage.setItem(SHARED_THEME_KEY, newTheme);
     updateThemeIcons();
 }
 
