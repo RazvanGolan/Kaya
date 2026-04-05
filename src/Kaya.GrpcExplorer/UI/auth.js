@@ -66,7 +66,7 @@ function togglePasswordVisibility(inputId, button) {
   }
 }
 
-function saveAuthConfiguration(storageKey = 'kayaAuthConfig', modalId = 'authModal') {
+function saveAuthConfiguration(storageKey = 'grpcexplorer_auth', modalId = 'authModal') {
   const authType = document.getElementById('authType').value
   authConfig.type = authType
   
@@ -95,8 +95,8 @@ function saveAuthConfiguration(storageKey = 'kayaAuthConfig', modalId = 'authMod
       break
   }
   
-  // TODO: Consider adding a timestamp to delete the config after a certain period for security
-  localStorage.setItem(storageKey, JSON.stringify(authConfig))
+  // Use TTL storage - auth expires after 24 hours for security
+  KayaStorage.set(storageKey, authConfig, { ttlType: 'auth' })
   
   updateAuthStatus()
   document.getElementById(modalId).classList.remove('show')
@@ -107,7 +107,7 @@ function saveAuthConfiguration(storageKey = 'kayaAuthConfig', modalId = 'authMod
   }
 }
 
-function clearAuthConfiguration(storageKey = 'kayaAuthConfig', modalId = 'authModal') {
+function clearAuthConfiguration(storageKey = 'grpcexplorer_auth', modalId = 'authModal') {
   authConfig = {
     type: 'none',
     bearer: { token: '' },
@@ -125,7 +125,7 @@ function clearAuthConfiguration(storageKey = 'kayaAuthConfig', modalId = 'authMo
   document.getElementById('oauthScopes').value = ''
   document.getElementById('oauthAccessToken').value = ''
   
-  localStorage.removeItem(storageKey)
+  KayaStorage.remove(storageKey)
   
   switchAuthType()
   updateAuthStatus()
@@ -137,12 +137,11 @@ function clearAuthConfiguration(storageKey = 'kayaAuthConfig', modalId = 'authMo
   }
 }
 
-function loadAuthConfiguration(storageKey = 'kayaAuthConfig') {
+function loadAuthConfiguration(storageKey = 'grpcexplorer_auth') {
   try {
-    const saved = localStorage.getItem(storageKey)
+    const saved = KayaStorage.get(storageKey)
     if (saved) {
-      const config = JSON.parse(saved)
-      authConfig = { ...authConfig, ...config }
+      authConfig = { ...authConfig, ...saved }
       
       document.getElementById('authType').value = authConfig.type
       document.getElementById('authToken').value = authConfig.bearer.token || ''

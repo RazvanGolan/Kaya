@@ -33,6 +33,7 @@ public class GrpcUiService(KayaGrpcExplorerOptions options) : IGrpcUiService
 
        // Read all resources from GrpcExplorer assembly
        var sharedStyles = await ReadEmbeddedResourceAsync(assembly, "UI.styles.css");
+       var kayaStorageJs = await ReadEmbeddedResourceAsync(assembly, "UI.kaya-storage.js");
        var sharedAuth = await ReadEmbeddedResourceAsync(assembly, "UI.auth.js");
        var htmlContent = await ReadEmbeddedResourceAsync(assembly, "UI.index.html");
        var grpcStyles = await ReadEmbeddedResourceAsync(assembly, "UI.grpc-styles.css");
@@ -50,7 +51,7 @@ public class GrpcUiService(KayaGrpcExplorerOptions options) : IGrpcUiService
            .Replace("<!-- SHARED_STYLES -->", $"<style>{sharedStyles}</style>")
            .Replace("<!-- GRPC_STYLES -->", $"<style>{grpcStyles}</style>")
            .Replace("<!-- CONFIG_SCRIPT -->", configScript)
-           .Replace("<!-- SHARED_AUTH_SCRIPT -->", $"<script>{sharedAuth}</script>")
+           .Replace("<!-- SHARED_AUTH_SCRIPT -->", $"<script>{kayaStorageJs}</script><script>{sharedAuth}</script>")
            .Replace("<!-- GRPC_SCRIPT -->", $"<script>{grpcScript}</script>")
            .Replace("<link rel=\"icon\" type=\"image/svg+xml\" href=\"icon.svg\">", $"<link rel=\"icon\" type=\"image/svg+xml\" href=\"data:image/svg+xml;base64,{svgBase64}\">");
        

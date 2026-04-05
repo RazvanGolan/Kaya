@@ -54,6 +54,8 @@
   --btn-purple-border: #c4b5fd;
   --btn-purple-bg-hover: #ddd6fe;
   --btn-purple-shadow: rgba(139, 92, 246, 0.2);
+  --history-clear-hover-bg: var(--hover-bg);
+  --history-clear-hover-text: var(--text-primary);
 }
 
 [data-theme="dark"] {
@@ -112,6 +114,8 @@
   --btn-purple-border: #8b5cf6;
   --btn-purple-bg-hover: rgba(139, 92, 246, 0.2);
   --btn-purple-shadow: rgba(139, 92, 246, 0.3);
+  --history-clear-hover-bg: var(--hover-secondary);
+  --history-clear-hover-text: var(--text-primary);
 }
 
 [data-theme="samurai-red"] {
@@ -168,6 +172,8 @@
   --btn-purple-bg: rgba(199, 158, 110, 0.15);
   --btn-purple-text: #c79e6e;
   --btn-purple-border: #84202c;
+  --history-clear-hover-bg: var(--hover-secondary);
+  --history-clear-hover-text: var(--text-primary);
   --btn-purple-bg-hover: rgba(199, 158, 110, 0.25);
   --btn-purple-shadow: rgba(199, 158, 110, 0.2);
 }
@@ -1848,8 +1854,8 @@ input[type="file"].file-input {
 }
 
 .history-clear-btn:hover {
-  background: var(--error-bg);
-  color: var(--error-text);
+  background: var(--history-clear-hover-bg);
+  color: var(--history-clear-hover-text);
   transform: scale(1.1);
 }
 
@@ -1917,7 +1923,6 @@ input[type="file"].file-input {
   background: var(--bg-primary);
   border-color: var(--accent-primary);
   box-shadow: 0 2px 8px var(--shadow-light);
-  transform: translateX(2px);
 }
 
 .history-item:hover::before {
