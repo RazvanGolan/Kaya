@@ -20,6 +20,8 @@ Swagger-like API documentation tool that automatically scans HTTP endpoints and 
 - Code Export - Generate request snippets in multiple programming languages
 - Performance Metrics - Track request duration and response size
 
+![Kaya API Explorer Demo](demo/kaya-api-demo.gif)
+
 📖 [Full Documentation](src/Kaya.ApiExplorer/README.md)
 
 ### <img src="src/Kaya.GrpcExplorer/UI/icon.svg" width="28" height="28" align="center" />  Kaya.GrpcExplorer
