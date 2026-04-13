@@ -35,6 +35,8 @@ gRPC service explorer that uses Server Reflection to discover and test gRPC serv
 - Authentication - Support for metadata-based authentication (Bearer tokens, API keys)
 - Streaming Support - View streaming responses with pagination for large message volumes
 
+![Kaya gRPC Explorer Demo](demo/kaya-grpc-demo.gif)
+
 📖 [Full Documentation](src/Kaya.GrpcExplorer/README.md)
 
 ### <img src="src/Kaya.McpServer/UI/icon.svg" width="28" height="28" align="center" /> Kaya.McpServer
