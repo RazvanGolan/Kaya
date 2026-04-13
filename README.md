@@ -20,6 +20,8 @@ Swagger-like API documentation tool that automatically scans HTTP endpoints and 
 - Code Export - Generate request snippets in multiple programming languages
 - Performance Metrics - Track request duration and response size
 
+![Kaya API Explorer Demo](demo/kaya-api-demo.gif)
+
 📖 [Full Documentation](src/Kaya.ApiExplorer/README.md)
 
 ### <img src="src/Kaya.GrpcExplorer/UI/icon.svg" width="28" height="28" align="center" />  Kaya.GrpcExplorer
@@ -32,6 +34,8 @@ gRPC service explorer that uses Server Reflection to discover and test gRPC serv
 - Server Configuration - Connect to local or remote gRPC servers with custom metadata
 - Authentication - Support for metadata-based authentication (Bearer tokens, API keys)
 - Streaming Support - View streaming responses with pagination for large message volumes
+
+![Kaya gRPC Explorer Demo](demo/kaya-grpc-demo.gif)
 
 📖 [Full Documentation](src/Kaya.GrpcExplorer/README.md)
 
