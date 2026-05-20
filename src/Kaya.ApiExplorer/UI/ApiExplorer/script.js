@@ -1063,14 +1063,6 @@ function parseKeyValueData(containerId) {
 }
 
 function getInitialTheme() {
-  if (window.KayaApiExplorerConfig && window.KayaApiExplorerConfig.defaultTheme) {
-    const serverTheme = window.KayaApiExplorerConfig.defaultTheme.toLowerCase()
-    if (serverTheme === 'light' || serverTheme === 'dark') {
-      const userTheme = localStorage.getItem('theme')
-      return userTheme || serverTheme
-    }
-  }
-  
   return localStorage.getItem('theme') || 'light'
 }
 

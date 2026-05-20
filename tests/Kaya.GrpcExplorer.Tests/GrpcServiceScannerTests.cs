@@ -18,8 +18,7 @@ public class GrpcServiceScannerTests
         {
             Middleware = new MiddlewareOptions
             {
-                AllowInsecureConnections = true,
-                RequestTimeoutSeconds = 30
+                AllowInsecureConnections = true
             }
         };
 
@@ -134,5 +133,57 @@ public class GrpcServiceScannerTests
         var result = _scanner.GetCachedMethodDescriptor("localhost:59989", "Unknown.Service", "NonExistent");
 
         result.Should().BeNull();
+    }
+
+    // -------------------------------------------------------------------------
+    // ExcludePathPatterns
+    // -------------------------------------------------------------------------
+
+    [Fact]
+    public void Constructor_ShouldAcceptExcludePathPatterns()
+    {
+        var options = new KayaGrpcExplorerOptions
+        {
+            Middleware = new MiddlewareOptions
+            {
+                ExcludePathPatterns = ["^grpc\\.reflection\\.", "/Internal[A-Z]"]
+            }
+        };
+
+        var act = () => new GrpcServiceScanner(options);
+
+        act.Should().NotThrow();
+    }
+
+    [Fact]
+    public void Constructor_ShouldIgnoreEmptyOrWhitespacePatterns()
+    {
+        var options = new KayaGrpcExplorerOptions
+        {
+            Middleware = new MiddlewareOptions
+            {
+                ExcludePathPatterns = ["", "   ", "^demo\\."]
+            }
+        };
+
+        var act = () => new GrpcServiceScanner(options);
+
+        act.Should().NotThrow();
+    }
+
+    [Fact]
+    public void Constructor_ShouldThrow_ForInvalidRegex()
+    {
+        var options = new KayaGrpcExplorerOptions
+        {
+            Middleware = new MiddlewareOptions
+            {
+                ExcludePathPatterns = ["[unclosed"]
+            }
+        };
+
+        var act = () => new GrpcServiceScanner(options);
+
+        act.Should().Throw<ArgumentException>();
     }
 }

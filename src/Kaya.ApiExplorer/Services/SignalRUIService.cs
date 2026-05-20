@@ -31,8 +31,7 @@ public class SignalRUIService(KayaApiExplorerOptions options) : ISignalRUIServic
             var favIconContent = await ReadEmbeddedResourceAsync(assembly, "UI.ApiExplorer.icon.svg");
             var svgBase64 = Convert.ToBase64String(Encoding.UTF8.GetBytes(favIconContent));
 
-            // Inject theme configuration into the HTML
-            var themeScript = GenerateThemeScript();
+            var themeScript = GenerateConfigScript();
 
             var finalHtml = htmlContent
                 .Replace("<link rel=\"stylesheet\" href=\"../styles.css\">", $"<style>{mainCssContent}</style>")
@@ -48,22 +47,14 @@ public class SignalRUIService(KayaApiExplorerOptions options) : ISignalRUIServic
         }
     }
 
-    private string GenerateThemeScript()
+    private string GenerateConfigScript()
     {
-        var defaultTheme = options.Middleware.DefaultTheme.ToLower();
-        
-        if (defaultTheme != "light" && defaultTheme != "dark")
-        {
-            defaultTheme = "light";
-        }
-
         var apiExplorerRoute = options.Middleware.RoutePrefix;
 
         return $@"
 <script>
     // Kaya SignalR Debug Configuration
     window.KayaSignalRDebugConfig = {{
-        defaultTheme: '{defaultTheme}',
         apiExplorerRoute: '{apiExplorerRoute}'
     }};
 </script>";

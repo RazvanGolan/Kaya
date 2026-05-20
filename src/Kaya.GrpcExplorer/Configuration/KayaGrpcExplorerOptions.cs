@@ -17,32 +17,26 @@ public class KayaGrpcExplorerOptions
 public class MiddlewareOptions
 {
     /// <summary>
-    /// Route prefix for the gRPC Explorer UI (default: "/grpc-explorer")
+    /// Route prefix for the gRPC Explorer UI (default: "/grpc-explorer").
     /// </summary>
     public string RoutePrefix { get; set; } = "/grpc-explorer";
 
     /// <summary>
-    /// Default theme for the UI ("light" or "dark")
-    /// </summary>
-    public string DefaultTheme { get; set; } = "light";
-
-    /// <summary>
-    /// Default server address for gRPC connections (default: "localhost:5001")
+    /// Default server address pre-populated in the UI when no value is stored in the browser
+    /// (default: "localhost:5001").
     /// </summary>
     public string DefaultServerAddress { get; set; } = "localhost:5001";
 
     /// <summary>
-    /// Maximum number of messages to buffer for streaming methods (default: 100)
-    /// </summary>
-    public int StreamBufferSize { get; init; } = 100;
-
-    /// <summary>
-    /// Request timeout in seconds (default: 30)
-    /// </summary>
-    public int RequestTimeoutSeconds { get; init; } = 30;
-
-    /// <summary>
-    /// Enable insecure connections (http instead of https) - for development only
+    /// Enable insecure connections (http instead of https) - for development only.
     /// </summary>
     public bool AllowInsecureConnections { get; set; } = false;
+
+    /// <summary>
+    /// Regex patterns matched (case-insensitive) against each discovered gRPC method's
+    /// fully-qualified path in the form "package.Service/Method".
+    /// Methods matching any pattern are skipped during scanning.
+    /// Example: ["^grpc\\.reflection\\.", "/Internal[A-Z]"].
+    /// </summary>
+    public List<string> ExcludePathPatterns { get; set; } = [];
 }

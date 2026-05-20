@@ -1,4 +1,5 @@
 using System.Collections.Concurrent;
+using System.Text.RegularExpressions;
 using Google.Protobuf;
 using Google.Protobuf.Reflection;
 using Kaya.GrpcExplorer.Configuration;
@@ -23,6 +24,18 @@ public class GrpcServiceScanner(KayaGrpcExplorerOptions options) : IGrpcServiceS
     private readonly ConcurrentDictionary<(string, string), FileDescriptorSet> _descriptorCache = [];
     // Cache method descriptors to avoid rebuilding FileDescriptors on every invocation
     private readonly ConcurrentDictionary<(string, string, string), MethodDescriptor> _methodDescriptorCache = [];
+
+    private readonly List<Regex> _excludeRegexes = options.Middleware.ExcludePathPatterns
+        .Where(p => !string.IsNullOrWhiteSpace(p))
+        .Select(p => new Regex(p, RegexOptions.IgnoreCase | RegexOptions.Compiled))
+        .ToList();
+
+    private bool IsMethodExcluded(string serviceFullName, string methodName)
+    {
+        if (_excludeRegexes.Count is 0) return false;
+        var path = $"{serviceFullName}/{methodName}";
+        return _excludeRegexes.Any(r => r.IsMatch(path));
+    }
 
     /// <summary>
     /// Scans a gRPC server for services using reflection
@@ -147,7 +160,10 @@ public class GrpcServiceScanner(KayaGrpcExplorerOptions options) : IGrpcServiceS
             // Cache the method descriptor for later use during invocation
             var cacheKey = (serverAddress, service.FullName, method.Name);
             _methodDescriptorCache[cacheKey] = method;
-            
+
+            if (IsMethodExcluded(service.FullName, method.Name))
+                continue;
+
             serviceInfo.Methods.Add(BuildMethodInfo(method));
         }
 

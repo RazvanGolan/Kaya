@@ -256,8 +256,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
 // Theme Management
 function initializeTheme() {
-    const config = window.KayaSignalRDebugConfig || { defaultTheme: 'light' };
-    const savedTheme = localStorage.getItem(SHARED_THEME_KEY) || config.defaultTheme;
+    const savedTheme = localStorage.getItem(SHARED_THEME_KEY) || 'light';
     document.documentElement.setAttribute('data-theme', savedTheme);
     localStorage.setItem(SHARED_THEME_KEY, savedTheme);
     // Migration cleanup: remove old SignalR-specific theme key so only shared theme remains.

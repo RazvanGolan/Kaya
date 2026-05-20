@@ -22,6 +22,17 @@ public interface IEndpointScanner
 
 public class EndpointScanner(KayaApiExplorerOptions options) : IEndpointScanner
 {
+    private readonly List<Regex> _excludeRegexes = [.. options.Middleware.ExcludePathPatterns
+        .Where(p => !string.IsNullOrWhiteSpace(p))
+        .Select(p => new Regex(p, RegexOptions.IgnoreCase | RegexOptions.Compiled))];
+
+    private bool IsPathExcluded(string path)
+    {
+        if (_excludeRegexes.Count is 0) return false;
+        var normalized = path.StartsWith('/') ? path : "/" + path;
+        return _excludeRegexes.Any(r => r.IsMatch(normalized));
+    }
+
     public ApiDocumentation ScanEndpoints(IServiceProvider serviceProvider)
     {
         var doc = options.Documentation;
@@ -62,7 +73,11 @@ public class EndpointScanner(KayaApiExplorerOptions options) : IEndpointScanner
             foreach (var controllerType in controllerTypes)
             {
                 var endpoints = ScanController(controllerType);
-                if (endpoints.Count <= 0) 
+                if (_excludeRegexes.Count > 0)
+                {
+                    endpoints = [.. endpoints.Where(e => !IsPathExcluded(e.Path))];
+                }
+                if (endpoints.Count <= 0)
                     continue;
                 
                 var controllerName = controllerType.Name;
@@ -106,7 +121,7 @@ public class EndpointScanner(KayaApiExplorerOptions options) : IEndpointScanner
         return documentation;
     }
 
-    private static List<ApiController> ScanMinimalApiEndpoints(IServiceProvider serviceProvider)
+    private List<ApiController> ScanMinimalApiEndpoints(IServiceProvider serviceProvider)
     {
         var endpointSources = serviceProvider.GetServices<EndpointDataSource>();
         var groups = new Dictionary<string, List<ApiEndpoint>>(StringComparer.OrdinalIgnoreCase);
@@ -134,6 +149,9 @@ public class EndpointScanner(KayaApiExplorerOptions options) : IEndpointScanner
                 // Strip route constraints: {id:int} → {id}
                 var cleanText = Regex.Replace(rawText, @"\{(\w+):[^}]+\}", "{$1}");
                 var pattern = "/" + cleanText;
+
+                if (IsPathExcluded(pattern))
+                    continue;
 
                 // Group by first tag, or derive from route prefix
                 var tagsMetadata = routeEndpoint.Metadata.GetMetadata<ITagsMetadata>();

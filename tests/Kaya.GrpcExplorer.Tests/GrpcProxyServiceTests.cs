@@ -22,9 +22,7 @@ public class GrpcProxyServiceTests
         {
             Middleware = new MiddlewareOptions
             {
-                AllowInsecureConnections = true,
-                RequestTimeoutSeconds = 30,
-                StreamBufferSize = 100
+                AllowInsecureConnections = true
             }
         };
 

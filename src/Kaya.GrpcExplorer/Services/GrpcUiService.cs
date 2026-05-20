@@ -66,10 +66,7 @@ public class GrpcUiService(KayaGrpcExplorerOptions options) : IGrpcUiService
        var config = new
        {
            routePrefix = options.Middleware.RoutePrefix,
-           defaultTheme = options.Middleware.DefaultTheme,
-           defaultServerAddress = options.Middleware.DefaultServerAddress,
-           streamBufferSize = options.Middleware.StreamBufferSize,
-           requestTimeoutSeconds = options.Middleware.RequestTimeoutSeconds
+           defaultServerAddress = options.Middleware.DefaultServerAddress
        };
 
        var json = JsonSerializer.Serialize(config);

@@ -11,18 +11,15 @@ namespace Kaya.ApiExplorer.Extensions;
 public static class ServiceCollectionExtensions
 {
     /// <summary>
-    /// Adds Kaya API Explorer in middleware mode with the specified route prefix and theme
+    /// Adds Kaya API Explorer in middleware mode with the specified route prefix.
     /// </summary>
     /// <param name="services">The service collection</param>
     /// <param name="routePrefix">The route prefix (default: "/kaya")</param>
-    /// <param name="defaultTheme">The default theme ("light" or "dark")</param>
-    /// <returns></returns>
-    public static IServiceCollection AddKayaApiExplorer(this IServiceCollection services, string routePrefix = "/kaya", string defaultTheme = "light")
+    public static IServiceCollection AddKayaApiExplorer(this IServiceCollection services, string routePrefix = "/kaya")
     {
         return services.AddKayaApiExplorer(options =>
         {
             options.Middleware.RoutePrefix = routePrefix;
-            options.Middleware.DefaultTheme = defaultTheme;
         });
     }
     

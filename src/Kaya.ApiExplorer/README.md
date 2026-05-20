@@ -1,40 +1,61 @@
 # Kaya API Explorer
 
-A lightweight, Swagger-like API documentation tool for .NET applications that automatically scans your HTTP endpoints and displays them in a beautiful, interactive UI.
+A lightweight, Swagger-like API documentation tool for ASP.NET Core. Drops into your application as a single middleware, discovers every controller and Minimal API endpoint at runtime, and serves an interactive UI plus a valid OpenAPI 3.0 export.
+
+> Looking for the gRPC equivalent? See [Kaya.GrpcExplorer](../Kaya.GrpcExplorer/README.md).
+
+---
+
+## Table of Contents
+
+- [Features](#features)
+- [Quick Start](#quick-start)
+- [Configuration Reference](#configuration-reference)
+- [Recipes](#recipes)
+  - [Customise the UI route](#customise-the-ui-route)
+  - [Enrich the OpenAPI metadata](#enrich-the-openapi-metadata)
+  - [Hide internal endpoints](#hide-internal-endpoints)
+  - [Enable SignalR debugging](#enable-signalr-debugging)
+  - [Bind from `appsettings.json`](#bind-from-appsettingsjson)
+- [How It Works](#how-it-works)
+- [Captured Endpoint Metadata](#captured-endpoint-metadata)
+- [XML Documentation](#xml-documentation)
+- [Troubleshooting](#troubleshooting)
+- [License](#license)
+
+---
 
 ## Features
 
-- **Automatic Discovery** - Scans controllers, Minimal API endpoints, and routes using reflection
-- **Interactive UI** - Test endpoints directly from the browser with real-time responses
-- **Authentication** - Support for Bearer tokens, API keys, OAuth 2.0, and cookies
-- **SignalR Debugging** - Real-time hub testing with method invocation and event monitoring
-- **XML Documentation** - Automatically reads and displays your code comments
-- **Code Export** - Generate request snippets in multiple programming languages
-- **Performance Metrics** - Track request duration and response size
-- **Request History** - Save and reload previous requests from the UI for faster retesting
-- **Data Annotations** - Validation constraints from model attributes surfaced in the UI
-- **Multiple Response Codes** - Full `[ProducesResponseType]` support with per-status-code schemas
+- **Automatic discovery** -- controllers, Minimal API endpoints, and route attributes scanned via reflection.
+- **Interactive UI** -- invoke endpoints from the browser with real-time responses.
+- **Authentication** -- Bearer tokens, API keys, OAuth 2.0, and cookies.
+- **SignalR debugging** -- a separate UI for live hub testing and event monitoring.
+- **XML doc comments** -- surfaced alongside parameters and responses.
+- **OpenAPI 3.0 export** -- a valid spec served at `{routePrefix}/openapi.json`.
+- **Code snippets** -- copy-ready request examples in multiple languages.
+- **Request history** -- replay previous calls without retyping payloads.
+- **Data annotations** -- `[Required]`, `[Range]`, `[StringLength]`, etc., shown in the UI.
+
+---
 
 ## Quick Start
 
-### 1. Install the Package
+### 1. Install
 
 ```bash
 dotnet add package Kaya.ApiExplorer
 ```
 
-### 2. Configure Your Application
-
-Add Kaya API Explorer to your `Program.cs`:
+### 2. Register and enable
 
 ```csharp
 using Kaya.ApiExplorer.Extensions;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// Add services
 builder.Services.AddControllers();
-builder.Services.AddKayaApiExplorer(); 
+builder.Services.AddKayaApiExplorer();
 
 var app = builder.Build();
 
@@ -43,162 +64,207 @@ if (app.Environment.IsDevelopment())
     app.UseKayaApiExplorer();
 }
 
-app.UseHttpsRedirection();
-app.UseAuthorization();
 app.MapControllers();
-
 app.Run();
 ```
 
-### 3. Access the UI
+### 3. Open the UI
 
-Navigate to `http://localhost:5000/kaya` (or your app's URL) to view your API documentation.
+Navigate to **`/kaya`** on your application (for example `http://localhost:5000/kaya`).
 
-## Demo Project
+---
 
-This repository includes a demo project (`Demo.WebApi`) that showcases the API Explorer with sample endpoints for users and products.
+## Configuration Reference
 
-To run the demo:
+All options live under `KayaApiExplorerOptions`.
 
-```bash
-cd src/Demo.WebApi
-dotnet run
-```
+### `Middleware`
 
-Then navigate to `http://localhost:5121/kaya` to see the API Explorer in action.
+| Option | Type | Default | Purpose |
+|--------|------|---------|---------|
+| `RoutePrefix` | `string` | `"/kaya"` | URL path where the UI is served. |
+| `ExcludePathPatterns` | `List<string>` | `[]` | Regex patterns (case-insensitive). Endpoints whose path matches any pattern are skipped during scanning. |
 
-## How It Works
+### `SignalRDebug`
 
-Kaya API Explorer uses .NET reflection to scan your application's endpoints at runtime. It:
+| Option | Type | Default | Purpose |
+|--------|------|---------|---------|
+| `Enabled` | `bool` | `false` | Turns on the SignalR debugging UI and route. |
+| `RoutePrefix` | `string` | `"/kaya-signalr"` | URL path where the SignalR debugger is served. |
 
-1. **Discovers Endpoints**: Finds all `ControllerBase` controllers and Minimal API routes (`MapGet`, `MapPost`, etc.)
-2. **Analyzes Actions**: Examines public methods, their HTTP attributes, and `[ProducesResponseType]` declarations
-3. **Extracts Metadata**: Gathers parameters, return types, routing, and Data Annotations validation constraints
-4. **Generates Documentation**: Creates a fully valid OpenAPI 3.0 JSON representation of your API
-5. **Serves UI**: Provides a beautiful web interface to explore the documentation and interact with the endpoints
+### `Documentation`
 
-## API Information Captured
+Used by the UI header **and** the exported OpenAPI spec.
 
-For each endpoint, Kaya captures:
+| Option | Type | Default | Purpose |
+|--------|------|---------|---------|
+| `Title` | `string` | `"API Documentation"` | OpenAPI `info.title`. |
+| `Version` | `string` | `"1.0.0"` | OpenAPI `info.version`. |
+| `Description` | `string` | `""` | OpenAPI `info.description`. |
+| `TermsOfService` | `string?` | `null` | OpenAPI `info.termsOfService`. |
+| `Contact` | `ContactOptions?` | `null` | OpenAPI `info.contact` (`Name`, `Email`, `Url`). |
+| `License` | `LicenseOptions?` | `null` | OpenAPI `info.license` (`Name`, `Url`). |
+| `Servers` | `List<ServerOptions>` | `[]` | OpenAPI `servers` array (`Url`, `Description`). |
 
-- **HTTP Method** (GET, POST, PUT, DELETE, etc.)
-- **Route Path** with parameters
-- **Controller and Action Names** (or delegate name for Minimal APIs)
-- **Parameters** with types, sources (query, body, route, header, cookie), and requirements
-- **Data Annotation Constraints** (`[Required]`, `[Range]`, `[StringLength]`, `[EmailAddress]`, etc.)
-- **Response Types** and descriptions per status code
-- **Status Codes** declared via `[ProducesResponseType]`
+> Theme selection is a per-user UI concern. The theme toggle in the top bar persists the choice in browser `localStorage`.
 
-## Configuration
+---
 
-You can customize Kaya API Explorer in several ways:
+## Recipes
 
-### Basic Configuration
+### Customise the UI route
 
 ```csharp
-// Use default settings (route: "/kaya", theme: "light")
-builder.Services.AddKayaApiExplorer();
-
-// Customize route prefix and theme
-builder.Services.AddKayaApiExplorer(routePrefix: "/api-explorer", defaultTheme: "dark");
+builder.Services.AddKayaApiExplorer(routePrefix: "/api-explorer");
 ```
 
-### Documentation Metadata
-
-Configure `options.Documentation` to customise the metadata shown in the UI and in the exported OpenAPI spec. All fields are optional.
+### Enrich the OpenAPI metadata
 
 ```csharp
 builder.Services.AddKayaApiExplorer(options =>
 {
-    options.Documentation.Title = "Acme Orders API";
-    options.Documentation.Version = "v3";
-    options.Documentation.Description = "Manages orders, line items, and fulfilment workflows.";
+    options.Documentation.Title          = "Acme Orders API";
+    options.Documentation.Version        = "v3";
+    options.Documentation.Description    = "Manages orders, line items, and fulfilment workflows.";
     options.Documentation.TermsOfService = "https://acme.com/terms";
 
     options.Documentation.Contact = new ContactOptions
     {
-        Name = "Acme API Support",
+        Name  = "Acme API Support",
         Email = "api@acme.com",
-        Url = "https://acme.com/support"
+        Url   = "https://acme.com/support"
     };
 
     options.Documentation.License = new LicenseOptions
     {
         Name = "MIT",
-        Url = "https://opensource.org/licenses/MIT"
+        Url  = "https://opensource.org/licenses/MIT"
     };
 
     options.Documentation.Servers =
     [
         new ServerOptions { Url = "https://api.acme.com/v3", Description = "Production" },
-        new ServerOptions { Url = "http://localhost:5000",   Description = "Local" }
+        new ServerOptions { Url = "http://localhost:5000",   Description = "Local"      }
     ];
 });
 ```
 
-These values are written directly into the OpenAPI `info`, `contact`, `license`, `termsOfService`, and `servers` objects, producing a fully valid OpenAPI 3.0 spec.
+The exported spec at `/{routePrefix}/openapi.json` includes a full, valid OpenAPI 3.0 `info` object.
 
-### Advanced Configuration with SignalR Debugging
+### Hide internal endpoints
+
+`ExcludePathPatterns` accepts standard .NET regex syntax. Patterns are matched **case-insensitively** against the endpoint's route path (always prefixed with `/`).
 
 ```csharp
-using Kaya.ApiExplorer.Extensions;
+builder.Services.AddKayaApiExplorer(options =>
+{
+    options.Middleware.ExcludePathPatterns =
+    [
+        @"^/health$",       // exact match
+        @"^/metrics",       // prefix match
+        @"^/internal/",     // entire subtree
+        @"/_diagnostics/"   // anywhere in the path
+    ];
+});
+```
 
-var builder = WebApplication.CreateBuilder(args);
+When all endpoints of a controller match, the controller itself is omitted from the UI.
 
-builder.Services.AddSignalR(); // If using SignalR
+### Enable SignalR debugging
+
+```csharp
+builder.Services.AddSignalR();
 
 builder.Services.AddKayaApiExplorer(options =>
 {
-    options.Middleware.RoutePrefix = "/kaya";
-    options.Middleware.DefaultTheme = "light";
-    
-    // Enable SignalR debugging (optional)
-    options.SignalRDebug.Enabled = true;
-    options.SignalRDebug.RoutePrefix = "/signalr-debug";
+    options.SignalRDebug.Enabled     = true;
+    options.SignalRDebug.RoutePrefix = "/kaya-signalr";
 });
-
-var app = builder.Build();
-
-if (app.Environment.IsDevelopment())
-{
-    app.UseKayaApiExplorer();
-}
-
-// Map your SignalR hubs
-
-app.Run();
 ```
 
-### SignalR Debugging
+Open the SignalR debugger at `/kaya-signalr`. From the UI you can connect to hubs, invoke methods, and register handlers for server-sent events.
 
-The SignalR Debug Tool provides:
-- **Hub Connection Management**: Connect/disconnect from SignalR hubs with authentication support
-- **Method Invocation**: Execute hub methods with parameters and see real-time responses
-- **Event Handlers**: Register custom event handlers to receive server-sent messages
-- **Real-time Logging**: Monitor all hub activity including connections, method calls, and incoming events
-- **Interactive Testing**: Test your SignalR implementation without writing client code
+### Bind from `appsettings.json`
 
-### XML Documentation Support
+```jsonc
+{
+  "KayaApiExplorer": {
+    "Middleware": {
+      "RoutePrefix": "/kaya",
+      "ExcludePathPatterns": [ "^/health$", "^/internal/" ]
+    },
+    "SignalRDebug": {
+      "Enabled": true,
+      "RoutePrefix": "/kaya-signalr"
+    },
+    "Documentation": {
+      "Title": "Acme Orders API",
+      "Version": "v3"
+    }
+  }
+}
+```
 
-Kaya API Explorer automatically reads XML documentation comments from your code to provide better descriptions in the UI. To enable this feature, add the following to your project file (`.csproj`):
+```csharp
+builder.Services.AddKayaApiExplorer(options =>
+    builder.Configuration.GetSection("KayaApiExplorer").Bind(options));
+```
+
+---
+
+## How It Works
+
+1. **Discovery** -- scans loaded assemblies for `ControllerBase` subclasses and inspects the registered `EndpointDataSource` for Minimal API routes.
+2. **Analysis** -- reads HTTP method attributes, `[ProducesResponseType]`, route templates (including constraints such as `{id:Guid}`), and binding attributes.
+3. **Metadata** -- combines parameter types, sources, validation attributes, and XML doc comments.
+4. **Filtering** -- applies `ExcludePathPatterns` so internal endpoints never reach the UI or the OpenAPI export.
+5. **UI & spec** -- serves an interactive HTML UI at `{RoutePrefix}` and a valid OpenAPI 3.0 document at `{RoutePrefix}/openapi.json`.
+
+---
+
+## Captured Endpoint Metadata
+
+For each endpoint, the scanner captures:
+
+- HTTP method (GET, POST, PUT, DELETE, PATCH, ...).
+- Route path with parameter names (constraints like `:Guid` are normalised away).
+- Controller and action name, or the delegate name for Minimal APIs.
+- Parameters with type, source (`Route`, `Query`, `Body`, `Header`, `Form`, `File`), and required flag.
+- Data annotation constraints (`[Required]`, `[Range]`, `[StringLength]`, `[EmailAddress]`, ...).
+- Response types and descriptions per status code via `[ProducesResponseType]`.
+- Authorization requirements (`[Authorize]`, roles, `[AllowAnonymous]`).
+- Obsolete flag and message via `[Obsolete]`.
+
+---
+
+## XML Documentation
+
+To surface `<summary>`, `<param>`, `<returns>`, and `<response>` comments in the UI, enable XML documentation generation in your project:
 
 ```xml
 <PropertyGroup>
   <GenerateDocumentationFile>true</GenerateDocumentationFile>
+  <NoWarn>$(NoWarn);1591</NoWarn>
 </PropertyGroup>
 ```
 
-If XML documentation is not available, the explorer falls back to generating default descriptions.
+If the XML file is absent, the explorer falls back to generated default descriptions.
 
-### Embedded UI Architecture
+---
 
-The UI is built with embedded HTML, CSS, and JavaScript files that are compiled into the assembly. This ensures:
-- **Reliable deployment**: No external file dependencies
-- **Fast loading**: Resources are served from memory
-- **Consistent experience**: UI works the same across all environments
+## Troubleshooting
 
-The middleware integrates seamlessly into your ASP.NET Core pipeline, serving the API Explorer at your specified route without any external dependencies or separate processes.
+| Symptom | Likely cause / fix |
+|--------|--------------------|
+| UI loads but no endpoints appear | The middleware is registered only inside `IsDevelopment()` -- confirm the environment, or move `UseKayaApiExplorer()` outside the check. |
+| Endpoint appears with `{id:Guid}` in the path | Upgrade to a version that strips route constraints during scanning. The path should display as `{id}` regardless of the constraint. |
+| Internal endpoints leak into the UI | Add a regex to `Middleware.ExcludePathPatterns`. |
+| OpenAPI export missing `contact` / `license` | Populate `Documentation.Contact` and `Documentation.License` -- they are omitted from the spec when null. |
+| Parameter descriptions are blank | Enable `<GenerateDocumentationFile>` in the controller project so the XML file ships alongside the assembly. |
+| SignalR UI returns 404 | `SignalRDebug.Enabled` defaults to `false`. Set it to `true`. |
+
+---
 
 ## License
 
-This project is licensed under the MIT License - see the LICENSE file for details.
+MIT -- see the [LICENSE](../../LICENSE) file at the repository root.

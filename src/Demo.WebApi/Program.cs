@@ -40,13 +40,12 @@ builder.Services.AddAuthorization();
 builder.Services.AddKayaApiExplorer(options =>
 {
     options.Middleware.RoutePrefix = "/kaya";
-    options.Middleware.DefaultTheme = "light";
     options.SignalRDebug.Enabled = true;
     options.SignalRDebug.RoutePrefix = "/kaya-signalr";
 });
 
 // Alternative: Simple configuration (SignalR debug disabled by default)
-// builder.Services.AddKayaApiExplorer(routePrefix: "/api-explorer", defaultTheme: "dark");
+// builder.Services.AddKayaApiExplorer(routePrefix: "/api-explorer");
 
 var app = builder.Build();
 

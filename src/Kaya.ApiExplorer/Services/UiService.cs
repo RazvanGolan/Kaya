@@ -27,8 +27,7 @@ public class UIService(KayaApiExplorerOptions options) : IUIService
             var jsContent = await ReadEmbeddedResourceAsync(assembly, "UI.ApiExplorer.script.js");
             var favIconContent = await ReadEmbeddedResourceAsync(assembly, "UI.ApiExplorer.icon.svg");
 
-            // Inject theme configuration into the HTML
-            var themeScript = GenerateThemeScript();
+            var themeScript = GenerateConfigScript();
 
             var svgBase64 = Convert.ToBase64String(Encoding.UTF8.GetBytes(favIconContent));
 
@@ -45,15 +44,8 @@ public class UIService(KayaApiExplorerOptions options) : IUIService
         }
     }
 
-    private string GenerateThemeScript()
+    private string GenerateConfigScript()
     {
-        var defaultTheme = options.Middleware.DefaultTheme.ToLower();
-        
-        if (defaultTheme != "light" && defaultTheme != "dark")
-        {
-            defaultTheme = "light";
-        }
-
         var signalRRoute = options.SignalRDebug.RoutePrefix;
         var signalREnabled = options.SignalRDebug.Enabled;
         var routePrefix = options.Middleware.RoutePrefix;
@@ -63,7 +55,6 @@ public class UIService(KayaApiExplorerOptions options) : IUIService
     // Kaya API Explorer Configuration
     window.KayaApiExplorerConfig = {{
         routePrefix: '{routePrefix}',
-        defaultTheme: '{defaultTheme}',
         signalRRoute: '{signalRRoute}',
         signalREnabled: {signalREnabled.ToString().ToLower()}
     }};

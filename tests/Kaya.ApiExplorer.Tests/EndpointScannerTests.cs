@@ -434,6 +434,57 @@ public class EndpointScannerTests
         Assert.NotNull(idParam);
         Assert.Equal("Route", idParam.Source);
     }
+
+    [Fact]
+    public void ScanEndpoints_ExcludePathPatterns_ShouldSkipMatchingEndpoints()
+    {
+        var scanner = new EndpointScanner(new KayaApiExplorerOptions
+        {
+            Documentation = new DocumentationOptions { Title = "x", Version = "1" },
+            Middleware = new MiddlewareOptions
+            {
+                ExcludePathPatterns = ["^/api/advanced/products/"]
+            }
+        });
+
+        var result = scanner.ScanEndpoints(EmptyServiceProvider());
+        var controller = result.Controllers.FirstOrDefault(c => c.Name == "AdvancedTestController");
+        Assert.NotNull(controller);
+
+        Assert.DoesNotContain(controller.Endpoints, e => e.Path.StartsWith("/api/advanced/products/"));
+        // Other endpoints in the same controller remain
+        Assert.Contains(controller.Endpoints, e => e.MethodName == "GetStatus");
+    }
+
+    [Fact]
+    public void ScanEndpoints_ExcludePathPatterns_ShouldDropWholeController_WhenAllEndpointsMatch()
+    {
+        var scanner = new EndpointScanner(new KayaApiExplorerOptions
+        {
+            Documentation = new DocumentationOptions { Title = "x", Version = "1" },
+            Middleware = new MiddlewareOptions
+            {
+                ExcludePathPatterns = ["^/api/Test(/|$)"]
+            }
+        });
+
+        var result = scanner.ScanEndpoints(EmptyServiceProvider());
+        Assert.DoesNotContain(result.Controllers, c => c.Name == "TestController");
+    }
+
+    [Fact]
+    public void ScanEndpoints_ExcludePathPatterns_EmptyList_ShouldNotFilterAnything()
+    {
+        var scanner = new EndpointScanner(new KayaApiExplorerOptions
+        {
+            Documentation = new DocumentationOptions { Title = "x", Version = "1" },
+            Middleware = new MiddlewareOptions { ExcludePathPatterns = [] }
+        });
+
+        var result = scanner.ScanEndpoints(EmptyServiceProvider());
+        Assert.Contains(result.Controllers, c => c.Name == "TestController");
+        Assert.Contains(result.Controllers, c => c.Name == "AdvancedTestController");
+    }
 }
 
 // ─── Test controller for ProducesResponseType scanning ────────────────────────

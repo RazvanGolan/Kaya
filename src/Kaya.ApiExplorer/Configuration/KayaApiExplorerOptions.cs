@@ -11,8 +11,15 @@ public class KayaApiExplorerOptions
 
 public class MiddlewareOptions
 {
+    /// <summary>Path prefix where the API Explorer UI is served (default: "/kaya").</summary>
     public string RoutePrefix { get; set; } = "/kaya";
-    public string DefaultTheme { get; set; } = "light";
+
+    /// <summary>
+    /// Regex patterns matched (case-insensitive) against each endpoint's route path.
+    /// Endpoints matching any pattern are skipped during scanning.
+    /// Example: ["^/health$", "^/metrics", "^/internal/"].
+    /// </summary>
+    public List<string> ExcludePathPatterns { get; set; } = [];
 }
 
 [ExcludeFromCodeCoverage(Justification = "Plain configuration DTO — no logic to test.")]

@@ -89,9 +89,7 @@ function setupTextareaAutoResize(container) {
 
 // Theme Management
 function getInitialTheme() {
-    const config = window.KayaGrpcExplorerConfig || { defaultTheme: 'light' }
-    const serverTheme = (config.defaultTheme || 'light').toLowerCase()
-    const fallbackTheme = serverTheme === 'dark' ? 'dark' : 'light'
+    const fallbackTheme = 'light'
     const savedTheme = localStorage.getItem('kayaGrpcTheme')
 
     if (savedTheme === 'bouquet') {
