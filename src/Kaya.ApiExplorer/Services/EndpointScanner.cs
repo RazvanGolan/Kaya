@@ -369,6 +369,8 @@ public class EndpointScanner(KayaApiExplorerOptions options) : IEndpointScanner
                 {
                     var methodRoute = httpAttr.Template ?? string.Empty;
                     var fullPath = ReflectionHelper.CombineRoutes(controllerRoute, methodRoute);
+                    // Strip route constraints: {id:Guid} → {id}, {id:int?} → {id}
+                    fullPath = Regex.Replace(fullPath, @"\{(\*{0,2}\w+):[^}]+\}", "{$1}");
                     
                     var (requiresAuth, roles) = AttributeHelper.GetAuthorizationInfo(method, controllerType);
                     var (isObsolete, obsoleteMessage) = AttributeHelper.GetObsoleteInfo(method);

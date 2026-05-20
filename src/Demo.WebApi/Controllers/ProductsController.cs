@@ -187,6 +187,24 @@ public class ProductsController : ControllerBase
     }
 
     /// <summary>
+    /// Gets a product by its external GUID identifier
+    /// </summary>
+    /// <param name="id">External product GUID</param>
+    /// <returns>Product details</returns>
+    /// <response code="200">Returns the matching product</response>
+    /// <response code="404">No product matched the given GUID</response>
+    [HttpGet("by-guid/{id:Guid}")]
+    [ProducesResponseType(typeof(Product), 200)]
+    [ProducesResponseType(404)]
+    public ActionResult<Product> GetProductByGuid(Guid id)
+    {
+        // Deterministic mapping: hash GUID to existing product index for demo purposes
+        var index = Math.Abs(id.GetHashCode()) % _products.Count;
+        var product = _products[index];
+        return Ok(product);
+    }
+
+    /// <summary>
     /// Gets all product categories
     /// </summary>
     /// <returns>List of categories</returns>

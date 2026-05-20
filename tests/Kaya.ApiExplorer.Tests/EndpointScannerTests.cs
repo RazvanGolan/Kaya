@@ -399,6 +399,41 @@ public class EndpointScannerTests
         // bool notify = false has a default value exposed by the scanner
         Assert.NotNull(notifyParam.DefaultValue);
     }
+
+    [Fact]
+    public void ScanEndpoints_ShouldStripGuidRouteConstraint()
+    {
+        var result = CreateScanner().ScanEndpoints(EmptyServiceProvider());
+        var controller = result.Controllers.FirstOrDefault(c => c.Name == "AdvancedTestController");
+        Assert.NotNull(controller);
+        var endpoint = controller.Endpoints.FirstOrDefault(e => e.MethodName == "GetConstrainedProduct");
+        Assert.NotNull(endpoint);
+
+        Assert.Contains("{id}", endpoint.Path);
+        Assert.DoesNotContain(":Guid", endpoint.Path);
+        Assert.DoesNotContain("{id:", endpoint.Path);
+
+        var idParam = endpoint.Parameters.FirstOrDefault(p => p.Name == "id");
+        Assert.NotNull(idParam);
+        Assert.Equal("Route", idParam.Source);
+    }
+
+    [Fact]
+    public void ScanEndpoints_ShouldStripOptionalIntRouteConstraint()
+    {
+        var result = CreateScanner().ScanEndpoints(EmptyServiceProvider());
+        var controller = result.Controllers.FirstOrDefault(c => c.Name == "AdvancedTestController");
+        Assert.NotNull(controller);
+        var endpoint = controller.Endpoints.FirstOrDefault(e => e.MethodName == "GetConstrainedOptionalInt");
+        Assert.NotNull(endpoint);
+
+        Assert.Contains("{id}", endpoint.Path);
+        Assert.DoesNotContain(":int", endpoint.Path);
+
+        var idParam = endpoint.Parameters.FirstOrDefault(p => p.Name == "id");
+        Assert.NotNull(idParam);
+        Assert.Equal("Route", idParam.Source);
+    }
 }
 
 // ─── Test controller for ProducesResponseType scanning ────────────────────────
@@ -532,6 +567,18 @@ public class AdvancedTestController : ControllerBase
     public ActionResult<TestUser?> GetNullableUser(int? id)
     {
         return Ok(null);
+    }
+
+    [HttpGet("constrained/{id:Guid}")]
+    public ActionResult<TestProduct> GetConstrainedProduct(Guid id)
+    {
+        return Ok(new TestProduct());
+    }
+
+    [HttpGet("constrained-int/{id:int?}")]
+    public ActionResult<TestProduct> GetConstrainedOptionalInt(int? id)
+    {
+        return Ok(new TestProduct());
     }
 }
 
