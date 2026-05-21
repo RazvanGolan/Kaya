@@ -156,6 +156,15 @@
                     </select>
                     <input type="text" id="requestUrl" placeholder="Enter request URL" value="https://api.example.com/" class="url-input">
                     <button id="sendRequestBtn" class="btn btn-primary">Send</button>
+                    <button id="importCurlBtn" class="btn btn-outline" onclick="showImportCurlModal()" title="Import a cURL command">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <rect x="8" y="2" width="8" height="4" rx="1" ry="1"></rect>
+                            <path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"></path>
+                            <path d="M9 14h6"></path>
+                            <path d="M12 11l3 3-3 3"></path>
+                        </svg>
+                        Import cURL
+                    </button>
                     <button id="exportRequestBuilderBtn" class="btn btn-outline" onclick="showRequestBuilderExportModal()" title="Export request as code">
                         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                             <polyline points="16,16 12,12 8,16"></polyline>
@@ -213,6 +222,30 @@
                             <p class="text-muted">No response yet. Send a request to see the response here.</p>
                         </div>
                     </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Import cURL Modal -->
+    <div id="importCurlModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <div>
+                    <h3>Import cURL</h3>
+                    <p>Paste a cURL command to populate the request builder</p>
+                </div>
+                <button class="modal-close" onclick="closeImportCurlModal()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <textarea id="curlImportInput"
+                          class="body-textarea"
+                          style="min-height: 180px; font-family: Monaco, monospace;"
+                          placeholder="curl 'https://api.example.com/users' -H 'Authorization: Bearer ...' -X POST -d '{&quot;name&quot;:&quot;Alice&quot;}'"></textarea>
+                <div id="curlImportErrors" class="curl-import-errors" style="display:none;"></div>
+                <div style="margin-top: 12px; display: flex; gap: 8px; justify-content: flex-end;">
+                    <button class="btn btn-outline" onclick="closeImportCurlModal()">Cancel</button>
+                    <button class="btn btn-primary" onclick="performCurlImport()">Import</button>
                 </div>
             </div>
         </div>

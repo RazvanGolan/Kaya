@@ -1097,6 +1097,78 @@ body {
   min-height: 200px;
 }
 
+.curl-import-errors {
+  margin-top: 12px;
+  padding: 10px 12px;
+  border: 1px solid var(--warning-border, #d9b400);
+  background-color: var(--warning-bg, rgba(255, 196, 0, 0.08));
+  border-radius: 6px;
+  font-size: 13px;
+  color: var(--text-primary);
+  max-height: 180px;
+  overflow-y: auto;
+}
+
+.curl-import-error {
+  padding: 2px 0;
+  line-height: 1.4;
+}
+
+.curl-import-error + .curl-import-error {
+  border-top: 1px dashed var(--border-color, rgba(0, 0, 0, 0.1));
+  padding-top: 4px;
+  margin-top: 4px;
+}
+
+/* Themed scrollbars for modals, textareas, and export code blocks */
+.modal-content,
+.modal-body,
+.body-textarea,
+.export-code-container,
+.export-code-block,
+.curl-import-errors {
+  scrollbar-width: thin;
+  scrollbar-color: var(--border-primary) transparent;
+}
+
+.modal-content::-webkit-scrollbar,
+.modal-body::-webkit-scrollbar,
+.body-textarea::-webkit-scrollbar,
+.export-code-container::-webkit-scrollbar,
+.export-code-block::-webkit-scrollbar,
+.curl-import-errors::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+.modal-content::-webkit-scrollbar-track,
+.modal-body::-webkit-scrollbar-track,
+.body-textarea::-webkit-scrollbar-track,
+.export-code-container::-webkit-scrollbar-track,
+.export-code-block::-webkit-scrollbar-track,
+.curl-import-errors::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.modal-content::-webkit-scrollbar-thumb,
+.modal-body::-webkit-scrollbar-thumb,
+.body-textarea::-webkit-scrollbar-thumb,
+.export-code-container::-webkit-scrollbar-thumb,
+.export-code-block::-webkit-scrollbar-thumb,
+.curl-import-errors::-webkit-scrollbar-thumb {
+  background: var(--border-primary);
+  border-radius: 4px;
+}
+
+.modal-content::-webkit-scrollbar-thumb:hover,
+.modal-body::-webkit-scrollbar-thumb:hover,
+.body-textarea::-webkit-scrollbar-thumb:hover,
+.export-code-container::-webkit-scrollbar-thumb:hover,
+.export-code-block::-webkit-scrollbar-thumb:hover,
+.curl-import-errors::-webkit-scrollbar-thumb:hover {
+  background: var(--border-secondary);
+}
+
 .response-error {
   padding: 12px;
   background-color: var(--error-bg);
