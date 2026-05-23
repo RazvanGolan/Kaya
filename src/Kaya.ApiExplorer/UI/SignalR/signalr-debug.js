@@ -10,11 +10,9 @@ const STORAGE_KEYS = {
     CONNECTIONS: 'signalr_connections',
     HANDLERS: 'signalr_handlers',
     HISTORY: 'signalr_history',
-    HISTORY_PANEL_COLLAPSED: 'signalr_history_panel_collapsed'
+    HISTORY_PANEL_COLLAPSED: 'signalr_history_panel_collapsed',
+    THEME: 'theme'
 };
-
-const SHARED_THEME_KEY = 'theme';
-const LEGACY_SIGNALR_THEME_KEY = 'signalr_theme';
 
 const MAX_HISTORY_ENTRIES = 50;
 
@@ -256,11 +254,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
 // Theme Management
 function initializeTheme() {
-    const savedTheme = localStorage.getItem(SHARED_THEME_KEY) || 'light';
+    const savedTheme = KayaStorage.get(STORAGE_KEYS.THEME) || 'light';
     document.documentElement.setAttribute('data-theme', savedTheme);
-    localStorage.setItem(SHARED_THEME_KEY, savedTheme);
-    // Migration cleanup: remove old SignalR-specific theme key so only shared theme remains.
-    KayaStorage.remove(LEGACY_SIGNALR_THEME_KEY);
+    KayaStorage.set(STORAGE_KEYS.THEME, savedTheme, { ttlType: 'preference' });
     updateThemeIcons();
 }
 
@@ -268,7 +264,7 @@ function toggleTheme() {
     const currentTheme = document.documentElement.getAttribute('data-theme');
     const newTheme = currentTheme === 'light' ? 'dark' : 'light';
     document.documentElement.setAttribute('data-theme', newTheme);
-    localStorage.setItem(SHARED_THEME_KEY, newTheme);
+    KayaStorage.set(STORAGE_KEYS.THEME, newTheme, { ttlType: 'preference' });
     updateThemeIcons();
 }
 

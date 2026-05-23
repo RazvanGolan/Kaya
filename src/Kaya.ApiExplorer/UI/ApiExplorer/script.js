@@ -8,7 +8,7 @@ const requestHeaders = [{ key: "Content-Type", value: "application/json" }]
 
 // Storage keys for KayaStorage
 const STORAGE_KEYS = {
-  THEME: 'apiexplorer_theme',
+  THEME: 'theme',
   HISTORY: 'apiexplorer_history'
 };
 
@@ -1063,7 +1063,7 @@ function parseKeyValueData(containerId) {
 }
 
 function getInitialTheme() {
-  return localStorage.getItem('theme') || 'light'
+  return KayaStorage.get(STORAGE_KEYS.THEME) || 'light'
 }
 
 function initializeTheme() {
@@ -1074,7 +1074,7 @@ function initializeTheme() {
 function toggleTheme() {
   currentTheme = currentTheme === 'light' ? 'dark' : 'light'
   document.documentElement.setAttribute('data-theme', currentTheme)
-  localStorage.setItem('theme', currentTheme)
+  KayaStorage.set(STORAGE_KEYS.THEME, currentTheme, { ttlType: 'preference' })
   updateThemeButton()
 }
 
@@ -1112,7 +1112,7 @@ function activateSecret() {
   }
   
   document.documentElement.setAttribute('data-theme', currentTheme);
-  localStorage.setItem('theme', currentTheme);
+  KayaStorage.set(STORAGE_KEYS.THEME, currentTheme, { ttlType: 'preference' });
   updateThemeButton();
   
   // Remove animation after it plays

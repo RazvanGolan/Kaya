@@ -6,7 +6,7 @@
     <Nullable>enable</Nullable>
     <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
     <PackageId>Kaya.ApiExplorer</PackageId>
-    <PackageVersion>2.3.0</PackageVersion>
+    <PackageVersion>2.4.0</PackageVersion>
     <Authors>RazvanGolan</Authors>
     <Company>RazvanGolan</Company>
     <Product>Kaya API Explorer</Product>
@@ -18,7 +18,7 @@
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
     <PackageReadmeFile>README.md</PackageReadmeFile>
     <PackageIcon>icon.png</PackageIcon>
-    <PackageReleaseNotes>Version 2.3.0: Added request history and TTL support for local storage. Fixes include selectable response textarea, improved examples for ushort and related numeric types, a single shared theme key between API Explorer and SignalR Debug, and clear values behavior improvements.</PackageReleaseNotes>
+    <PackageReleaseNotes>Version 2.4.0: Added cURL import for the request builder and introduced the ExcludePathPatterns option to filter internal endpoints. Theme configuration was removed (can still change it from UI and will persist) and related configuration behavior updated. Fixed path parameter handling when explicit casts are specified.</PackageReleaseNotes>
   </PropertyGroup>  
   <ItemGroup>
     <FrameworkReference Include="Microsoft.AspNetCore.App" />

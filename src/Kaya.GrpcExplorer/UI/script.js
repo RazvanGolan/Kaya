@@ -90,10 +90,10 @@ function setupTextareaAutoResize(container) {
 // Theme Management
 function getInitialTheme() {
     const fallbackTheme = 'light'
-    const savedTheme = localStorage.getItem('kayaGrpcTheme')
+    const savedTheme = KayaStorage.get(STORAGE_KEYS.THEME)
 
     if (savedTheme === 'bouquet') {
-        localStorage.setItem('kayaGrpcTheme', 'joker')
+        KayaStorage.set(STORAGE_KEYS.THEME, 'joker', { ttlType: 'preference' })
         return 'joker'
     }
 
@@ -112,7 +112,7 @@ function initializeTheme() {
 function toggleTheme() {
     currentTheme = currentTheme === 'light' ? 'dark' : 'light'
     document.documentElement.setAttribute('data-theme', currentTheme)
-    localStorage.setItem('kayaGrpcTheme', currentTheme)
+    KayaStorage.set(STORAGE_KEYS.THEME, currentTheme, { ttlType: 'preference' })
     updateThemeIcons()
 }
 
@@ -146,7 +146,7 @@ function activateSecret() {
 
     currentTheme = currentTheme === 'joker' ? 'light' : 'joker'
     document.documentElement.setAttribute('data-theme', currentTheme)
-    localStorage.setItem('kayaGrpcTheme', currentTheme)
+    KayaStorage.set(STORAGE_KEYS.THEME, currentTheme, { ttlType: 'preference' })
     updateThemeIcons()
 
     setTimeout(() => {
