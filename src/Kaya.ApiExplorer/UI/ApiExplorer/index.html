@@ -425,8 +425,17 @@
                                     </svg>
                                 </button>
                             </div>
-                            <pre id="exportCodeContent" class="export-code-block">Select a format to generate code</pre>
+                            <textarea id="exportCodeContent" class="export-code-block" spellcheck="false" placeholder="Select a format to generate code"></textarea>
                         </div>
+                    </div>
+                    <div class="export-actions">
+                        <span class="export-edit-hint" id="exportEditHint">Edit the snippet then load it into the Request Builder.</span>
+                        <button id="openInRequestBuilderBtn" class="btn btn-primary btn-sm" onclick="openExportInRequestBuilder()">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M5 12h14"></path><path d="M12 5l7 7-7 7"></path>
+                            </svg>
+                            Open in Request Builder
+                        </button>
                     </div>
                 </div>
             </div>
@@ -470,7 +479,7 @@
                                     </svg>
                                 </button>
                             </div>
-                            <pre id="requestBuilderExportCodeContent" class="export-code-block">Select a format to generate code</pre>
+                            <textarea id="requestBuilderExportCodeContent" class="export-code-block" spellcheck="false" placeholder="Select a format to generate code"></textarea>
                         </div>
                     </div>
                 </div>

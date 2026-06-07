@@ -7,6 +7,8 @@ let endpointResponses = {}
 const requestHeaders = [{ key: "Content-Type", value: "application/json" }]
 
 // Storage keys for KayaStorage
+// All keys are auto-prefixed with `kaya_` by KayaStorage when written to localStorage.
+// THEME is shared with the SignalR debug UI so light/dark stays consistent across both surfaces.
 const STORAGE_KEYS = {
   THEME: 'theme',
   HISTORY: 'apiexplorer_history'
@@ -82,7 +84,7 @@ function addToHistory(request, response = null, endpointMetadata = null) {
     const history = loadHistory();
     const source = endpointMetadata?.source || 'request-builder';
     const normalizedUrl = normalizeHistoryUrl(request.url);
-    
+
     const entry = {
       id: generateUUID(),
       timestamp: Date.now(),
@@ -104,12 +106,12 @@ function addToHistory(request, response = null, endpointMetadata = null) {
       endpoint: endpointMetadata ? { ...endpointMetadata, source } : null,
       displayName: `${request.method} ${truncateUrl(normalizedUrl, 50)}`
     };
-    
+
     // Add to beginning (most recent first)
     history.unshift(entry);
 
     saveHistory(history);
-    
+
     renderHistoryPanel();
   } catch (error) {
     console.error('[History] Error adding to history:', error);
@@ -154,10 +156,10 @@ function toggleHistoryPanel() {
 function loadHistoryEntry(id) {
   const history = loadHistory();
   const entry = history.find(e => e.id === id);
-  
+
   if (!entry || entry.type !== 'http') return;
   const source = entry.source || entry.endpoint?.source || (entry.endpoint?.endpointIdentifier ? 'try-it-out' : 'request-builder');
-  
+
   // If this was an endpoint execution, navigate to that endpoint
   if (source === 'try-it-out' && entry.endpoint && entry.endpoint.endpointIdentifier) {
     const endpointId = entry.endpoint.endpointIdentifier;
@@ -176,22 +178,22 @@ function loadHistoryEntry(id) {
     }
 
     if (controllerName) {
-      
+
       // Select the controller in the sidebar
       selectedController = controllerName;
       renderControllers();
-      
+
       // Expand the endpoint if not already expanded
       if (!expandedEndpoints.includes(endpointId)) {
         expandedEndpoints.push(endpointId);
       }
-      
+
       // Set the active tab to "try" before rendering
       endpointActiveTabs[endpointId] = 'try';
-      
+
       // Re-render to show the expanded endpoint with correct tab
       renderEndpoints();
-      
+
       // Wait for DOM to update, then populate parameters and scroll
       setTimeout(() => {
         // Populate parameter values
@@ -213,7 +215,7 @@ function loadHistoryEntry(id) {
             }
           });
         }
-        
+
         // Populate request body if present
         if (entry.http.body !== null && entry.http.body !== undefined) {
           const bodyTextarea = document.getElementById(`request-body-${endpointId}`);
@@ -232,7 +234,7 @@ function loadHistoryEntry(id) {
             switchTryItOutBodyEditorMode(`request-body-${endpointId}`, `request-body-kv-${endpointId}`);
           }
         }
-        
+
         // Scroll to the endpoint in the main content area
         const endpointCard = document.querySelector(`#content-${endpointId}`)?.closest('.endpoint-card');
         if (endpointCard) {
@@ -246,16 +248,16 @@ function loadHistoryEntry(id) {
           }
         }
       }, 150);
-      
+
       return;
     }
   }
-  
+
   // Otherwise, load into request builder (original behavior)
   const methodSelect = document.getElementById('requestMethod');
   const urlInput = document.getElementById('requestUrl');
   const bodyTextarea = document.getElementById('requestBody');
-  
+
   if (methodSelect) methodSelect.value = entry.http.method;
   if (urlInput) urlInput.value = normalizeHistoryUrl(entry.http.url);
   if (bodyTextarea && entry.http.body !== null && entry.http.body !== undefined) {
@@ -280,7 +282,7 @@ function loadHistoryEntry(id) {
       }
     }
   }
-  
+
   // Update headers
   requestHeaders.length = 0;
   const headers = entry.http.headers || {};
@@ -291,11 +293,11 @@ function loadHistoryEntry(id) {
     requestHeaders.push({ key: "Content-Type", value: "application/json" });
   }
   renderHeadersTable();
-  
+
   // Switch to request builder tab if not already there
   const requestBuilderTab = document.querySelector('.sidebar-tabs .tab-btn[data-view="request-builder"]');
   if (requestBuilderTab) requestBuilderTab.click();
-  
+
   // Scroll to top of request builder
   const requestBuilder = document.getElementById('requestBuilder');
   if (requestBuilder) requestBuilder.scrollIntoView({ behavior: 'smooth' });
@@ -306,7 +308,7 @@ function loadHistoryEntry(id) {
  * @returns {string}
  */
 function generateUUID() {
-  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function (c) {
     const r = Math.random() * 16 | 0;
     const v = c === 'x' ? r : (r & 0x3 | 0x8);
     return v.toString(16);
@@ -321,7 +323,7 @@ function generateUUID() {
  */
 function truncateUrl(url, maxLength = 40) {
   if (url.length <= maxLength) return url;
-  
+
   // Try to preserve the path
   try {
     const urlObj = new URL(url, window.location.origin);
@@ -352,12 +354,12 @@ function normalizeHistoryUrl(url) {
  */
 function formatRelativeTime(timestamp) {
   const seconds = Math.floor((Date.now() - timestamp) / 1000);
-  
+
   if (seconds < 60) return 'just now';
   if (seconds < 3600) return `${Math.floor(seconds / 60)}m ago`;
   if (seconds < 86400) return `${Math.floor(seconds / 3600)}h ago`;
   if (seconds < 604800) return `${Math.floor(seconds / 86400)}d ago`;
-  
+
   return new Date(timestamp).toLocaleDateString();
 }
 
@@ -385,14 +387,14 @@ function getMethodBadgeClass(method) {
 function renderHistoryPanel() {
   const historyList = document.getElementById('history-list');
   if (!historyList) return;
-  
+
   const history = loadHistory();
-  
+
   if (history.length === 0) {
     historyList.innerHTML = '<div class="history-empty">No request history yet.<br>Send a request to see it here.</div>';
     return;
   }
-  
+
   historyList.innerHTML = history.map(entry => `
     <div class="history-item" data-id="${entry.id}">
       <div class="history-item-header">
@@ -416,14 +418,14 @@ function renderHistoryPanel() {
 
 function generateCurlCode(url, method, headers, body, formFields = null) {
   let curlCommand = `curl -X ${method.toUpperCase()} "${url}"`;
-  
+
   // Only include Content-Type header if it's not multipart/form-data (curl sets it automatically with -F)
   Object.entries(headers).forEach(([key, value]) => {
     if (!(formFields && key.toLowerCase() === 'content-type')) {
       curlCommand += ` \\\n  -H "${key}: ${value}"`;
     }
   });
-  
+
   if (formFields && formFields.length > 0) {
     // Use -F for form data fields
     formFields.forEach(field => {
@@ -436,13 +438,13 @@ function generateCurlCode(url, method, headers, body, formFields = null) {
   } else if (body && method.toUpperCase() !== 'GET') {
     curlCommand += ` \\\n  -d '${body}'`;
   }
-  
+
   return curlCommand;
 }
 
 function generateJavaScriptCode(url, method, headers, body, formFields = null) {
   let code = '';
-  
+
   if (formFields && formFields.length > 0) {
     code += 'const formData = new FormData();\n';
     formFields.forEach(field => {
@@ -453,34 +455,34 @@ function generateJavaScriptCode(url, method, headers, body, formFields = null) {
       }
     });
     code += '\n';
-    
+
     // Filter out Content-Type for FormData
     const filteredHeaders = Object.fromEntries(
       Object.entries(headers).filter(([key]) => key.toLowerCase() !== 'content-type')
     );
     const headersObj = Object.keys(filteredHeaders).length > 0 ? JSON.stringify(filteredHeaders, null, 2) : '{}';
-    
+
     code += `const response = await fetch('${url}', {\n  method: '${method.toUpperCase()}',\n  headers: ${headersObj},\n  body: formData\n});`;
   } else {
     const headersObj = JSON.stringify(headers, null, 2);
     code = `const response = await fetch('${url}', {\n  method: '${method.toUpperCase()}',\n  headers: ${headersObj}`;
-    
+
     if (body && method.toUpperCase() !== 'GET') {
       code += `,\n  body: ${JSON.stringify(body)}`;
     }
-    
+
     code += '\n})';
   }
-  
+
   code += ';\n\nconst data = await response.json();\nreturn data;';
-  
+
   return code;
 }
 
 function generatePythonCode(url, method, headers, body, formFields = null) {
   let code = 'import requests\n\n';
   code += `url = "${url}"\n`;
-  
+
   if (formFields && formFields.length > 0) {
     // Filter out Content-Type for multipart
     const filteredHeaders = Object.fromEntries(
@@ -489,7 +491,7 @@ function generatePythonCode(url, method, headers, body, formFields = null) {
     if (Object.keys(filteredHeaders).length > 0) {
       code += `headers = ${JSON.stringify(filteredHeaders, null, 2).replace(/"/g, "'")}\n`;
     }
-    
+
     const hasFiles = formFields.some(f => f.isFile);
     if (hasFiles) {
       code += '\nfiles = {\n';
@@ -502,7 +504,7 @@ function generatePythonCode(url, method, headers, body, formFields = null) {
         code += i < formFields.length - 1 ? ',\n' : '\n';
       });
       code += '}\n\n';
-      code += Object.keys(filteredHeaders).length > 0 
+      code += Object.keys(filteredHeaders).length > 0
         ? `response = requests.${method.toLowerCase()}(url, headers=headers, files=files)\n`
         : `response = requests.${method.toLowerCase()}(url, files=files)\n`;
     } else {
@@ -518,7 +520,7 @@ function generatePythonCode(url, method, headers, body, formFields = null) {
     }
   } else {
     code += `headers = ${JSON.stringify(headers, null, 2).replace(/"/g, "'")}\n`;
-    
+
     if (body && method.toUpperCase() !== 'GET') {
       code += `data = ${JSON.stringify(body, null, 2).replace(/"/g, "'")}\n\n`;
       code += `response = requests.${method.toLowerCase()}(url, headers=headers, json=data)\n`;
@@ -526,33 +528,33 @@ function generatePythonCode(url, method, headers, body, formFields = null) {
       code += `\nresponse = requests.${method.toLowerCase()}(url, headers=headers)\n`;
     }
   }
-  
+
   code += 'print(response.status_code)\nprint(response.json())';
-  
+
   return code;
 }
 
 function generateRubyCode(url, method, headers, body, formFields = null) {
   let code = "require 'net/http'\nrequire 'json'\nrequire 'uri'\n";
-  
+
   if (formFields && formFields.length > 0) {
     code += "require 'net/http/post/multipart'\n\n";
     code += `uri = URI('${url}')\n`;
     code += `http = Net::HTTP.new(uri.host, uri.port)\n`;
-    
+
     if (url.startsWith('https')) {
       code += 'http.use_ssl = true\n';
     }
-    
+
     code += `\nrequest = Net::HTTP::${method.charAt(0).toUpperCase() + method.slice(1).toLowerCase()}.new(uri)\n`;
-    
+
     // Filter out Content-Type for multipart
     Object.entries(headers).forEach(([key, value]) => {
       if (key.toLowerCase() !== 'content-type') {
         code += `request['${key}'] = '${value}'\n`;
       }
     });
-    
+
     code += '\n# Note: Install multipart-post gem: gem install multipart-post\n';
     code += 'form_data = {\n';
     formFields.forEach((field, i) => {
@@ -569,45 +571,45 @@ function generateRubyCode(url, method, headers, body, formFields = null) {
     code += "\n";
     code += `uri = URI('${url}')\n`;
     code += `http = Net::HTTP.new(uri.host, uri.port)\n`;
-    
+
     if (url.startsWith('https')) {
       code += 'http.use_ssl = true\n';
     }
-    
+
     code += `\nrequest = Net::HTTP::${method.charAt(0).toUpperCase() + method.slice(1).toLowerCase()}.new(uri)\n`;
-    
+
     Object.entries(headers).forEach(([key, value]) => {
       code += `request['${key}'] = '${value}'\n`;
     });
-    
+
     if (body && method.toUpperCase() !== 'GET') {
       code += `request.body = ${JSON.stringify(body, null, 2).replace(/"/g, "'")}.to_json\n`;
     }
   }
-  
+
   code += '\nresponse = http.request(request)\nputs response.code\nputs response.body';
-  
+
   return code;
 }
 
 function generateCSharpCode(url, method, headers, body, formFields = null) {
   let code = 'using System;\nusing System.Net.Http;\n';
-  
+
   if (formFields && formFields.length > 0) {
     code += 'using System.IO;\nusing System.Threading.Tasks;\n\n';
     code += 'class Program\n{\n    static async Task Main(string[] args)\n    {\n';
     code += '        using var client = new HttpClient();\n';
-    
+
     // Filter out Content-Type for multipart
     Object.entries(headers).forEach(([key, value]) => {
       if (key.toLowerCase() !== 'content-type') {
         code += `        client.DefaultRequestHeaders.Add("${key}", "${value}");\n`;
       }
     });
-    
+
     code += `\n        var url = "${url}";\n`;
     code += '        using var formData = new MultipartFormDataContent();\n\n';
-    
+
     formFields.forEach(field => {
       if (field.isFile) {
         code += `        // Add file: formData.Add(new StreamContent(File.OpenRead("/path/to/file")), "${field.key}", "filename");\n`;
@@ -615,21 +617,21 @@ function generateCSharpCode(url, method, headers, body, formFields = null) {
         code += `        formData.Add(new StringContent("${field.value}"), "${field.key}");\n`;
       }
     });
-    
+
     code += `\n        var response = await client.${method.charAt(0).toUpperCase() + method.slice(1).toLowerCase()}Async(url, formData);\n`;
   } else {
     code += 'using System.Text;\nusing System.Threading.Tasks;\n\n';
     code += 'class Program\n{\n    static async Task Main(string[] args)\n    {\n';
     code += '        using var client = new HttpClient();\n';
-    
+
     Object.entries(headers).forEach(([key, value]) => {
       if (key.toLowerCase() !== 'content-type') {
         code += `        client.DefaultRequestHeaders.Add("${key}", "${value}");\n`;
       }
     });
-    
+
     code += `\n        var url = "${url}";\n`;
-    
+
     if (body && method.toUpperCase() !== 'GET') {
       code += `        var json = ${JSON.stringify(body, null, 8)};\n`;
       code += '        var content = new StringContent(json, Encoding.UTF8, "application/json");\n\n';
@@ -638,12 +640,12 @@ function generateCSharpCode(url, method, headers, body, formFields = null) {
       code += `        var response = await client.${method.charAt(0).toUpperCase() + method.slice(1).toLowerCase()}Async(url);\n`;
     }
   }
-  
+
   code += '\n        var responseContent = await response.Content.ReadAsStringAsync();\n';
   code += '        Console.WriteLine($"Status: {response.StatusCode}");\n';
   code += '        Console.WriteLine($"Content: {responseContent}");\n';
   code += '    }\n}';
-  
+
   return code;
 }
 
@@ -659,57 +661,65 @@ function buildRequestData(config) {
   } = config;
 
   let finalUrl = endpoint ? endpoint.path : baseUrl;
-  
+
   if (endpoint && endpoint.parameters) {
     const pathParams = endpoint.parameters.filter(p => p.source === "Route") || [];
-    
+
     pathParams.forEach(param => {
       let paramValue = '';
       if (endpointIdentifier) {
         paramValue = document.getElementById(`param-${endpointIdentifier}-${param.name}`)?.value;
       }
-      
+
       if (!paramValue && !allowEmptyPathParams) {
         paramValue = `{${param.name}}`;
       }
-      
+
       if (paramValue) {
         finalUrl = finalUrl.replace(`{${param.name}}`, paramValue);
       }
     });
-    
+
     const queryParams = endpoint.parameters.filter(p => p.source === "Query") || [];
     const queryString = new URLSearchParams();
-    
+
     queryParams.forEach(param => {
-      if (endpointIdentifier) {
-        const paramValue = document.getElementById(`param-${endpointIdentifier}-${param.name}`)?.value;
-        if (paramValue) {
-          queryString.append(param.name, paramValue);
-        }
+      if (!endpointIdentifier) return;
+
+      // Complex query object ([FromQuery] SomeClass): read each expanded property field
+      // and bind it as its own top-level query key (ASP.NET complex query binding).
+      if (param.schema && param.schema.properties && Object.keys(param.schema.properties).length > 0) {
+        Object.entries(param.schema.properties).forEach(([propName, propInfo]) => {
+          const value = document.getElementById(`param-${endpointIdentifier}-${param.name}.${propName}`)?.value;
+          appendQueryValue(queryString, propName, value, isCollectionTypeName(propInfo.type));
+        });
+        return;
       }
+
+      const paramValue = document.getElementById(`param-${endpointIdentifier}-${param.name}`)?.value;
+      appendQueryValue(queryString, param.name, paramValue, isCollectionTypeName(param.type));
     });
-    
+
     if (queryString.toString()) {
       finalUrl += (finalUrl.includes('?') ? '&' : '?') + queryString.toString();
     }
   }
-  
+
   if (!finalUrl.startsWith('http')) {
     finalUrl = window.location.origin + (finalUrl.startsWith('/') ? '' : '/') + finalUrl;
   }
-  
-  const hasFileParams = endpoint && endpoint.parameters && 
+
+  const hasFileParams = endpoint && endpoint.parameters &&
     endpoint.parameters.some(p => p.source === "File" || p.isFile);
-  
+
   const hasFormParams = endpoint && endpoint.parameters &&
     endpoint.parameters.some(p => p.source === "Form");
-  
+
   // Use multipart/form-data for file or form parameters (let browser set the boundary)
   const hasFileOrFormParams = hasFileParams || hasFormParams;
-  
+
   const headers = hasFileOrFormParams ? { ...customHeaders } : { 'Content-Type': 'application/json', ...customHeaders };
-  
+
   if (endpoint && endpoint.parameters && endpointIdentifier) {
     const headerParams = endpoint.parameters.filter(p => p.source === "Header") || [];
     headerParams.forEach(param => {
@@ -721,7 +731,7 @@ function buildRequestData(config) {
       }
     });
   }
-  
+
   if (includeAuth) {
     const authHeaders = getAuthHeaders();
     Object.keys(authHeaders).forEach(key => {
@@ -730,26 +740,26 @@ function buildRequestData(config) {
       }
     });
   }
-  
+
   let requestBody = null;
   const method = endpoint ? endpoint.httpMethodType : 'GET';
-  
+
   if (method !== 'GET' && endpoint && endpointIdentifier) {
     // Handle file uploads or form data with multipart/form-data
     if (hasFileOrFormParams) {
       const formData = new FormData();
-      
+
       // Add file parameters
       const fileParams = endpoint.parameters.filter(p => p.source === "File" || p.isFile);
       fileParams.forEach(param => {
         const fileInput = document.getElementById(`param-file-${endpointIdentifier}-${param.name}`);
         if (fileInput && fileInput.files.length > 0) {
           // Check if this is an array/collection type that accepts multiple files
-          const isMultiple = param.type.includes('[]') || 
-                           param.type.toLowerCase().includes('list') || 
-                           param.type.toLowerCase().includes('collection') ||
-                           param.type.toLowerCase().includes('enumerable');
-          
+          const isMultiple = param.type.includes('[]') ||
+            param.type.toLowerCase().includes('list') ||
+            param.type.toLowerCase().includes('collection') ||
+            param.type.toLowerCase().includes('enumerable');
+
           if (isMultiple) {
             // Append all files for array/collection types
             Array.from(fileInput.files).forEach(file => {
@@ -761,7 +771,7 @@ function buildRequestData(config) {
           }
         }
       });
-      
+
       // Add form parameters (FromForm)
       const formParams = endpoint.parameters.filter(p => p.source === "Form");
       formParams.forEach(param => {
@@ -793,7 +803,7 @@ function buildRequestData(config) {
           }
         }
       });
-      
+
       // Add other Body parameters as form fields (legacy support)
       const bodyParams = endpoint.parameters.filter(p => p.source === "Body");
       bodyParams.forEach(param => {
@@ -802,14 +812,14 @@ function buildRequestData(config) {
           formData.append(param.name, paramInput.value);
         }
       });
-      
+
       // Add request body content if exists (for additional JSON data)
       if (endpoint.requestBody) {
         const bodyTextarea = document.getElementById(`request-body-${endpointIdentifier}`);
         const keyValueEditor = document.getElementById(`request-body-kv-${endpointIdentifier}`);
-        
+
         let requestBodyContent = '';
-        
+
         if (keyValueEditor && keyValueEditor.style.display !== 'none') {
           const keyValueData = getKeyValueData(`request-body-kv-${endpointIdentifier}`);
           if (Object.keys(keyValueData).length > 0) {
@@ -818,7 +828,7 @@ function buildRequestData(config) {
         } else if (bodyTextarea && bodyTextarea.value.trim()) {
           requestBodyContent = bodyTextarea.value.trim();
         }
-        
+
         if (requestBodyContent) {
           // Add body content as individual form fields
           try {
@@ -832,15 +842,15 @@ function buildRequestData(config) {
           }
         }
       }
-      
+
       requestBody = formData;
     } else if (endpoint.requestBody) {
       // Regular JSON body
       const bodyTextarea = document.getElementById(`request-body-${endpointIdentifier}`);
       const keyValueEditor = document.getElementById(`request-body-kv-${endpointIdentifier}`);
-      
+
       let requestBodyContent = '';
-      
+
       if (keyValueEditor && keyValueEditor.style.display !== 'none') {
         const keyValueData = getKeyValueData(`request-body-kv-${endpointIdentifier}`);
         if (Object.keys(keyValueData).length > 0) {
@@ -849,7 +859,7 @@ function buildRequestData(config) {
       } else if (bodyTextarea && bodyTextarea.value.trim()) {
         requestBodyContent = bodyTextarea.value.trim();
       }
-      
+
       if (requestBodyContent) {
         if (validateBody) {
           try {
@@ -864,7 +874,7 @@ function buildRequestData(config) {
       }
     }
   }
-  
+
   // Extract FormData entries for export
   let formFields = null;
   if (requestBody instanceof FormData) {
@@ -877,7 +887,7 @@ function buildRequestData(config) {
       });
     }
   }
-  
+
   return {
     url: finalUrl,
     method: method,
@@ -896,19 +906,19 @@ function buildRequestData(config) {
 function buildRequestDataForExport(controllerName, endpointIndex) {
   const controller = controllers.find(c => c.name === controllerName);
   if (!controller) return null;
-  
+
   const endpoint = controller.endpoints[endpointIndex];
   if (!endpoint) return null;
-  
+
   const endpointIdentifier = `${controllerName}-${endpointIndex}`;
-  
+
   try {
     const requestData = buildRequestData({
       endpoint: endpoint,
       endpointIdentifier: endpointIdentifier,
       allowEmptyPathParams: true
     });
-    
+
     return {
       ...requestData,
       endpoint: endpoint
@@ -938,7 +948,7 @@ function getDurationColor(ms) {
   const good = styles.getPropertyValue('--perf-good').trim();
   const warning = styles.getPropertyValue('--perf-warning').trim();
   const bad = styles.getPropertyValue('--perf-bad').trim();
-  
+
   if (ms < 500) return good;
   if (ms < 1000) return warning;
   return bad;
@@ -950,7 +960,7 @@ function getSizeColor(bytes) {
   const good = styles.getPropertyValue('--perf-good').trim();
   const warning = styles.getPropertyValue('--perf-warning').trim();
   const bad = styles.getPropertyValue('--perf-bad').trim();
-  
+
   if (bytes < 1024) return good;
   if (bytes < 1024 * 100) return warning;
   return bad;
@@ -983,7 +993,7 @@ function escapeHtml(text) {
 
 function createKeyValueField(containerId, key = '', value = '', config = {}) {
   const fieldsContainer = document.getElementById(containerId);
-  
+
   const fieldRow = document.createElement('div');
   fieldRow.className = config.rowClassName || 'tryout-parameter-row';
   if (config.rowStyle) {
@@ -991,39 +1001,39 @@ function createKeyValueField(containerId, key = '', value = '', config = {}) {
   } else {
     fieldRow.style.marginBottom = '8px';
   }
-  
+
   let valueStr = value;
   if (typeof value === 'object' && value !== null) {
     valueStr = JSON.stringify(value);
   } else if (typeof value !== 'string') {
     valueStr = String(value);
   }
-  
+
   const escapedKey = escapeHtml(key);
   const escapedValue = escapeHtml(valueStr);
-  
+
   const removeButtonClass = config.removeButtonClass || 'remove-header';
   const removeButtonStyle = config.removeButtonStyle || 'background: var(--btn-danger); color: white; border: none; padding: 6px 10px; border-radius: 4px; cursor: pointer;';
   const removeFunctionName = config.removeFunctionName || 'removeKeyValueField';
   const onChangeHandler = config.onChangeHandler ? `onchange="${config.onChangeHandler}"` : '';
-  
+
   fieldRow.innerHTML = `
     <input type="text" placeholder="Field name" value="${escapedKey}" class="header-input" style="flex: 1; margin-right: 8px;" ${onChangeHandler}>
     <input type="text" placeholder="Field value" value="${escapedValue}" class="header-input" style="flex: 2; margin-right: 8px;" ${onChangeHandler}>
     <button type="button" class="${removeButtonClass}" onclick="${removeFunctionName}(this)" style="${removeButtonStyle}">&times;</button>
   `;
-  
+
   fieldsContainer.appendChild(fieldRow);
 }
 
 function populateKeyValueContainer(containerId, data, config = {}) {
   const fieldsContainer = document.getElementById(containerId);
   fieldsContainer.innerHTML = '';
-  
+
   Object.entries(data).forEach(([key, value]) => {
     createKeyValueField(containerId, key, value, config);
   });
-  
+
   if (Object.keys(data).length === 0) {
     createKeyValueField(containerId, '', '', config);
   }
@@ -1032,12 +1042,12 @@ function populateKeyValueContainer(containerId, data, config = {}) {
 function parseKeyValueData(containerId) {
   const fieldsContainer = document.getElementById(containerId);
   const data = {};
-  
+
   Array.from(fieldsContainer.children).forEach(row => {
     const inputs = row.querySelectorAll('input');
     const key = inputs[0].value.trim();
     const value = inputs[1].value.trim();
-    
+
     if (key) {
       try {
         data[key] = JSON.parse(value);
@@ -1058,7 +1068,7 @@ function parseKeyValueData(containerId) {
       }
     }
   });
-  
+
   return data;
 }
 
@@ -1080,20 +1090,20 @@ function toggleTheme() {
 
 function handleLogoClick() {
   logoClickCount++;
-  
+
   // Reset counter if 1 second has passed since last click
   if (logoClickTimer) {
     clearTimeout(logoClickTimer);
   }
-  
+
   logoClickTimer = setTimeout(() => {
     logoClickCount = 0;
   }, 1000);
-  
+
   if (logoClickCount >= 3) {
     logoClickCount = 0;
     activateSecret();
-    
+
     if (logoClickTimer) {
       clearTimeout(logoClickTimer);
     }
@@ -1104,17 +1114,17 @@ function activateSecret() {
   // Add fun visual effect
   const brand = document.querySelector('.brand');
   brand.style.animation = 'secretPulse 0.6s ease-in-out';
-  
+
   if (currentTheme === 'samurai-red') {
     currentTheme = 'light';
   } else {
     currentTheme = 'samurai-red';
   }
-  
+
   document.documentElement.setAttribute('data-theme', currentTheme);
   KayaStorage.set(STORAGE_KEYS.THEME, currentTheme, { ttlType: 'preference' });
   updateThemeButton();
-  
+
   // Remove animation after it plays
   setTimeout(() => {
     brand.style.animation = '';
@@ -1126,7 +1136,7 @@ function updateThemeButton() {
   const sunIcon = themeBtn.querySelector('.sun-icon')
   const moonIcon = themeBtn.querySelector('.moon-icon')
   const themeText = themeBtn.querySelector('.theme-text')
-  
+
   if (currentTheme === 'dark') {
     sunIcon.style.display = 'block'
     moonIcon.style.display = 'none'
@@ -1139,56 +1149,56 @@ function updateThemeButton() {
 }
 
 async function checkOpenApiAvailability() {
-    const exportBtn = document.getElementById('exportBtn');
-    if (!exportBtn) return;
+  const exportBtn = document.getElementById('exportBtn');
+  if (!exportBtn) return;
 
-    const config = window.KayaApiExplorerConfig || {};
-    const routePrefix = config.routePrefix || '/kaya';
+  const config = window.KayaApiExplorerConfig || {};
+  const routePrefix = config.routePrefix || '/kaya';
 
-    try {
-        // Prefer an existing Swagger / ASP.NET Core OpenAPI endpoint if available
-        const possiblePaths = ['/openapi/v1.json', '/openapi.json', '/swagger/v1/swagger.json'];
-        let externalUrl = null;
+  try {
+    // Prefer an existing Swagger / ASP.NET Core OpenAPI endpoint if available
+    const possiblePaths = ['/openapi/v1.json', '/openapi.json', '/swagger/v1/swagger.json'];
+    let externalUrl = null;
 
-        for (const path of possiblePaths) {
-            try {
-                const response = await fetch(path, { method: 'GET' });
-                if (response.ok) { externalUrl = path; break; }
-            } catch (e) { /* continue */ }
-        }
-
-        const targetUrl = externalUrl ?? `${routePrefix}/openapi.json`;
-        exportBtn.style.display = 'block';
-        exportBtn.addEventListener('click', () => exportOpenApiSpec(targetUrl));
-    } catch (error) {
-        // Always show using the built-in fallback
-        const routePrefix2 = (window.KayaApiExplorerConfig || {}).routePrefix || '/kaya';
-        exportBtn.style.display = 'block';
-        exportBtn.addEventListener('click', () => exportOpenApiSpec(`${routePrefix2}/openapi.json`));
+    for (const path of possiblePaths) {
+      try {
+        const response = await fetch(path, { method: 'GET' });
+        if (response.ok) { externalUrl = path; break; }
+      } catch (e) { /* continue */ }
     }
+
+    const targetUrl = externalUrl ?? `${routePrefix}/openapi.json`;
+    exportBtn.style.display = 'block';
+    exportBtn.addEventListener('click', () => exportOpenApiSpec(targetUrl));
+  } catch (error) {
+    // Always show using the built-in fallback
+    const routePrefix2 = (window.KayaApiExplorerConfig || {}).routePrefix || '/kaya';
+    exportBtn.style.display = 'block';
+    exportBtn.addEventListener('click', () => exportOpenApiSpec(`${routePrefix2}/openapi.json`));
+  }
 }
 
 async function exportOpenApiSpec(url) {
-    try {
-        const response = await fetch(url);
-        if (!response.ok) {
-            alert('Failed to fetch OpenAPI specification');
-            return;
-        }
-        
-        const openApiSpec = await response.json();
-        const dataStr = JSON.stringify(openApiSpec, null, 2);
-        const dataBlob = new Blob([dataStr], { type: 'application/json' });
-        const downloadUrl = URL.createObjectURL(dataBlob);
-        const link = document.createElement('a');
-        link.href = downloadUrl;
-        link.download = 'openapi.json';
-        link.click();
-        URL.revokeObjectURL(downloadUrl);
-    } catch (error) {
-        console.error('Error exporting OpenAPI spec:', error);
-        alert('Failed to export OpenAPI specification');
+  try {
+    const response = await fetch(url);
+    if (!response.ok) {
+      alert('Failed to fetch OpenAPI specification');
+      return;
     }
+
+    const openApiSpec = await response.json();
+    const dataStr = JSON.stringify(openApiSpec, null, 2);
+    const dataBlob = new Blob([dataStr], { type: 'application/json' });
+    const downloadUrl = URL.createObjectURL(dataBlob);
+    const link = document.createElement('a');
+    link.href = downloadUrl;
+    link.download = 'openapi.json';
+    link.click();
+    URL.revokeObjectURL(downloadUrl);
+  } catch (error) {
+    console.error('Error exporting OpenAPI spec:', error);
+    alert('Failed to export OpenAPI specification');
+  }
 }
 
 async function loadApiData() {
@@ -1237,17 +1247,17 @@ function getStatusClass(code) {
 
 function doesEndpointMatchQuery(endpoint, query) {
   if (!query || !query.trim()) return true
-  
+
   const lowerQuery = query.toLowerCase()
   const endpointPath = endpoint.path.toLowerCase()
   const endpointMethod = endpoint.httpMethodType.toLowerCase()
   const endpointName = endpoint.methodName.toLowerCase()
   const endpointDescription = endpoint.description.toLowerCase()
-  
-  return endpointPath.includes(lowerQuery) || 
-         endpointMethod.includes(lowerQuery) || 
-         endpointName.includes(lowerQuery) || 
-         endpointDescription.includes(lowerQuery)
+
+  return endpointPath.includes(lowerQuery) ||
+    endpointMethod.includes(lowerQuery) ||
+    endpointName.includes(lowerQuery) ||
+    endpointDescription.includes(lowerQuery)
 }
 
 function renderControllers() {
@@ -1271,7 +1281,7 @@ function renderControllers() {
         `
 
     if (query) {
-      const hasMatchingEndpoint = controller.endpoints.some(endpoint => 
+      const hasMatchingEndpoint = controller.endpoints.some(endpoint =>
         doesEndpointMatchQuery(endpoint, query)
       )
       const title = controller.name.toLowerCase()
@@ -1295,16 +1305,16 @@ function renderEndpoints() {
   document.getElementById("controllerDescription").textContent = controller.description
 
   const container = document.getElementById("endpointsList")
-  
+
   saveEndpointStates()
-  
+
   container.innerHTML = ""
 
   const query = document.getElementById("searchInput").value.toLowerCase().trim()
-  
+
   let endpointsToShow = controller.endpoints
   if (query) {
-    endpointsToShow = controller.endpoints.filter(endpoint => 
+    endpointsToShow = controller.endpoints.filter(endpoint =>
       doesEndpointMatchQuery(endpoint, query)
     )
   }
@@ -1317,7 +1327,7 @@ function renderEndpoints() {
     const card = document.createElement("div")
     card.className = "endpoint-card"
 
-    const authBadge = endpoint.requiresAuthorization 
+    const authBadge = endpoint.requiresAuthorization
       ? `<span class="badge auth-badge" title="${endpoint.roles.length > 0 ? 'Requires role(s): ' + endpoint.roles.join(', ') : 'Requires authentication'}">
            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-right: 4px;">
              <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
@@ -1363,17 +1373,17 @@ function renderEndpoints() {
 
     container.appendChild(card)
   })
-  
+
   if (query && endpointsToShow.length === 0) {
     container.innerHTML = '<p class="text-muted" style="text-align: center; padding: 2rem;">No endpoints match your search query.</p>'
   }
-  
+
   restoreEndpointStates()
 }
 
 function renderEndpointTabs(endpoint, endpointId, index) {
   const activeTab = endpointActiveTabs[endpointId] || 'parameters';
-  
+
   return `
         <div class="tabs">
             <div class="tab-list">
@@ -1430,12 +1440,12 @@ function renderSchemaProperties(properties, required) {
 function renderConstraintBadges(constraints) {
   if (!constraints) return '';
   const badges = [];
-  if (constraints.minLength != null)  badges.push(`<span class="badge constraint-badge">min: ${constraints.minLength}</span>`);
-  if (constraints.maxLength != null)  badges.push(`<span class="badge constraint-badge">max: ${constraints.maxLength}</span>`);
-  if (constraints.minimum != null)    badges.push(`<span class="badge constraint-badge">&ge; ${constraints.minimum}</span>`);
-  if (constraints.maximum != null)    badges.push(`<span class="badge constraint-badge">&le; ${constraints.maximum}</span>`);
-  if (constraints.format)             badges.push(`<span class="badge constraint-badge">${constraints.format}</span>`);
-  if (constraints.pattern)            badges.push(`<span class="badge constraint-badge" title="${constraints.pattern}">pattern</span>`);
+  if (constraints.minLength != null) badges.push(`<span class="badge constraint-badge">min: ${constraints.minLength}</span>`);
+  if (constraints.maxLength != null) badges.push(`<span class="badge constraint-badge">max: ${constraints.maxLength}</span>`);
+  if (constraints.minimum != null) badges.push(`<span class="badge constraint-badge">&ge; ${constraints.minimum}</span>`);
+  if (constraints.maximum != null) badges.push(`<span class="badge constraint-badge">&le; ${constraints.maximum}</span>`);
+  if (constraints.format) badges.push(`<span class="badge constraint-badge">${constraints.format}</span>`);
+  if (constraints.pattern) badges.push(`<span class="badge constraint-badge" title="${constraints.pattern}">pattern</span>`);
   return badges.join('');
 }
 
@@ -1459,7 +1469,7 @@ function renderParameters(endpoint) {
             ${renderSchemaProperties(param.schema.properties, param.schema.required)}
           </div>`;
         }
-        
+
         return `
         <div class="parameter-item">
             <div class="parameter-header">
@@ -1528,8 +1538,8 @@ function renderResponses(endpoint) {
     for (const pr of endpoint.producesResponses) {
       const statusClass = pr.statusCode >= 500 ? 'delete'
         : pr.statusCode >= 400 ? 'put'
-        : pr.statusCode >= 300 ? 'get'
-        : 'post';
+          : pr.statusCode >= 300 ? 'get'
+            : 'post';
 
       const hasBody = pr.type && pr.type.length > 0;
       const escapedType = hasBody ? escapeHtml(pr.type) : '';
@@ -1662,6 +1672,62 @@ function renderTryItOut(endpoint, index) {
     `
 }
 
+// Detects collection-typed params (List<T>, T[], IEnumerable<T>, etc.) from their friendly type name.
+function isCollectionTypeName(typeName) {
+  if (!typeName) return false;
+  const t = typeName.toLowerCase();
+  return t.includes('[]') || t.includes('list') || t.includes('enumerable') ||
+    t.includes('collection') || t.includes('array');
+}
+
+// Appends a query value, splitting collection values on commas into repeated keys (?k=1&k=2).
+function appendQueryValue(queryString, key, value, isCollection) {
+  if (value == null || value === '') return;
+  if (isCollection) {
+    value.split(',').map(v => v.trim()).filter(v => v !== '').forEach(v => queryString.append(key, v));
+  } else {
+    queryString.append(key, value);
+  }
+}
+
+// Renders a single query-parameter input row.
+function renderQueryParamRow(id, label, type, required, isCollection, defaultValue) {
+  const placeholder = isCollection ? `Enter ${label} (comma-separated)` : `Enter ${label}`;
+  return `
+          <div class="tryout-parameter-row">
+            <label class="tryout-parameter-label ${required ? 'required' : ''}">${label}:</label>
+            <input type="text" id="${id}" placeholder="${placeholder}" class="header-input" style="flex: 1;" ${defaultValue != null ? `value="${defaultValue}"` : ''}>
+            <span class="tryout-parameter-type">${type}</span>
+          </div>`;
+}
+
+// Renders fields for one query parameter. Complex query objects ([FromQuery] SomeClass) expand
+// their top-level properties into one field each; scalars render a single field.
+function renderQueryParamFields(param, endpointIdentifier) {
+  if (param.schema && param.schema.properties && Object.keys(param.schema.properties).length > 0) {
+    const required = param.schema.required || [];
+    return Object.entries(param.schema.properties).map(([propName, propInfo]) =>
+      renderQueryParamRow(
+        `param-${endpointIdentifier}-${param.name}.${propName}`,
+        propName,
+        propInfo.type,
+        required.includes(propName),
+        isCollectionTypeName(propInfo.type),
+        propInfo.defaultValue
+      )
+    ).join('');
+  }
+
+  return renderQueryParamRow(
+    `param-${endpointIdentifier}-${param.name}`,
+    param.name,
+    param.type,
+    param.required,
+    isCollectionTypeName(param.type),
+    param.defaultValue
+  );
+}
+
 function renderTryItOutParameters(endpoint, endpointIdentifier) {
   if (!endpoint.parameters || endpoint.parameters.length === 0) {
     return '';
@@ -1679,13 +1745,7 @@ function renderTryItOutParameters(endpoint, endpointIdentifier) {
     parametersHtml += `
       <div class="tryout-parameter-group">
         <h4>Query Parameters</h4>
-        ${queryParams.map(param => `
-          <div class="tryout-parameter-row">
-            <label class="tryout-parameter-label ${param.required ? 'required' : ''}">${param.name}:</label>
-            <input type="text" id="param-${endpointIdentifier}-${param.name}" placeholder="Enter ${param.name}" class="header-input" style="flex: 1;" ${param.defaultValue ? `value="${param.defaultValue}"` : ''}>
-            <span class="tryout-parameter-type">${param.type}</span>
-          </div>
-        `).join('')}
+        ${queryParams.map(param => renderQueryParamFields(param, endpointIdentifier)).join('')}
       </div>
     `;
   }
@@ -1710,16 +1770,16 @@ function renderTryItOutParameters(endpoint, endpointIdentifier) {
       <div class="tryout-parameter-group">
         <h4>Header Parameters</h4>
         ${headerParams.map(param => {
-          const displayName = param.headerName || param.name;
-          const placeholder = param.headerName ? `${param.headerName} (${param.name})` : param.name;
-          return `
+      const displayName = param.headerName || param.name;
+      const placeholder = param.headerName ? `${param.headerName} (${param.name})` : param.name;
+      return `
           <div class="tryout-parameter-row">
             <label class="tryout-parameter-label ${param.required ? 'required' : ''}">${displayName}:</label>
             <input type="text" id="param-${endpointIdentifier}-${param.name}" placeholder="Enter ${placeholder}" class="header-input" style="flex: 1;" ${param.defaultValue ? `value="${param.defaultValue}"` : ''}>
             <span class="tryout-parameter-type">${param.type}</span>
           </div>
         `;
-        }).join('')}
+    }).join('')}
       </div>
     `;
   }
@@ -1729,23 +1789,23 @@ function renderTryItOutParameters(endpoint, endpointIdentifier) {
       <div class="tryout-parameter-group">
         <h4>Form Data</h4>
         ${formParams.map((param, paramIndex) => {
-          // Check if this is a complex type with schema (multiple properties)
-          if (param.schema && param.schema.properties && Object.keys(param.schema.properties).length > 0) {
-            // Render fields for each property in the complex type
-            const properties = param.schema.properties;
-            const paramLabel = formParams.length > 1 ? `<div style="margin: ${paramIndex > 0 ? '16px' : '0'} 0 8px 0; padding-bottom: 8px; border-bottom: 2px solid var(--border-primary); font-weight: 600; color: var(--text-primary);">${param.name} (${param.type})</div>` : '';
-            
-            return paramLabel + Object.entries(properties).map(([propName, propInfo]) => {
-              const isRequired = param.schema.required && param.schema.required.includes(propName);
-              const inputType = getInputTypeForProperty(propInfo.type);
-              const placeholder = `Enter ${propName}`;
-              const defaultVal = propInfo.defaultValue !== null && propInfo.defaultValue !== undefined ? propInfo.defaultValue : '';
-              const propConstraints = renderConstraintBadges(propInfo.constraints);
-              
-              if (inputType === 'file') {
-                const inputId = `param-${endpointIdentifier}-${param.name}.${propName}`;
-                const infoId = `file-info-${endpointIdentifier}-${param.name}.${propName}`;
-                return `
+      // Check if this is a complex type with schema (multiple properties)
+      if (param.schema && param.schema.properties && Object.keys(param.schema.properties).length > 0) {
+        // Render fields for each property in the complex type
+        const properties = param.schema.properties;
+        const paramLabel = formParams.length > 1 ? `<div style="margin: ${paramIndex > 0 ? '16px' : '0'} 0 8px 0; padding-bottom: 8px; border-bottom: 2px solid var(--border-primary); font-weight: 600; color: var(--text-primary);">${param.name} (${param.type})</div>` : '';
+
+        return paramLabel + Object.entries(properties).map(([propName, propInfo]) => {
+          const isRequired = param.schema.required && param.schema.required.includes(propName);
+          const inputType = getInputTypeForProperty(propInfo.type);
+          const placeholder = `Enter ${propName}`;
+          const defaultVal = propInfo.defaultValue !== null && propInfo.defaultValue !== undefined ? propInfo.defaultValue : '';
+          const propConstraints = renderConstraintBadges(propInfo.constraints);
+
+          if (inputType === 'file') {
+            const inputId = `param-${endpointIdentifier}-${param.name}.${propName}`;
+            const infoId = `file-info-${endpointIdentifier}-${param.name}.${propName}`;
+            return `
               <div class="tryout-parameter-row" style="align-items: stretch;">
                 <label class="tryout-parameter-label ${isRequired ? 'required' : ''}" style="padding-top: 8px;">${propName}:</label>
                 <div style="flex: 1; display: flex; flex-direction: column; gap: 4px;">
@@ -1769,8 +1829,8 @@ function renderTryItOutParameters(endpoint, endpointIdentifier) {
                 </div>
                 <span class="tryout-parameter-type">${propInfo.type}</span>
               </div>`;
-              } else {
-                return `
+          } else {
+            return `
               <div class="tryout-parameter-row">
                 <label class="tryout-parameter-label ${isRequired ? 'required' : ''}">${propName}:${propConstraints}</label>
                 <input type="${inputType}" 
@@ -1783,18 +1843,18 @@ function renderTryItOutParameters(endpoint, endpointIdentifier) {
                        data-property-name="${propName}">
                 <span class="tryout-parameter-type">${propInfo.type}</span>
               </div>`;
-              }
-            }).join('');
-          } else {
-            // Simple form parameter - render single input
-            return `
+          }
+        }).join('');
+      } else {
+        // Simple form parameter - render single input
+        return `
           <div class="tryout-parameter-row">
             <label class="tryout-parameter-label ${param.required ? 'required' : ''}">${param.name}:</label>
             <input type="text" id="param-${endpointIdentifier}-${param.name}" placeholder="Enter ${param.name}" class="header-input" style="flex: 1;" ${param.defaultValue ? `value="${param.defaultValue}"` : ''}>
             <span class="tryout-parameter-type">${param.type}</span>
           </div>`;
-          }
-        }).join('')}
+      }
+    }).join('')}
       </div>
     `;
   }
@@ -1804,17 +1864,17 @@ function renderTryItOutParameters(endpoint, endpointIdentifier) {
       <div class="tryout-parameter-group">
         <h4>File Upload</h4>
         ${fileParams.map(param => {
-          // Check if this is an array or collection type (multiple files)
-          const isMultiple = param.type.includes('[]') || 
-                           param.type.toLowerCase().includes('list') || 
-                           param.type.toLowerCase().includes('collection') ||
-                           param.type.toLowerCase().includes('enumerable');
-          const multipleAttr = isMultiple ? 'multiple' : '';
-          const helpText = isMultiple ? 'Select one or more files to upload' : 'Select a file to upload';
-          const inputId = `param-file-${endpointIdentifier}-${param.name}`;
-          const infoId = `file-info-${endpointIdentifier}-${param.name}`;
-          
-          return `
+      // Check if this is an array or collection type (multiple files)
+      const isMultiple = param.type.includes('[]') ||
+        param.type.toLowerCase().includes('list') ||
+        param.type.toLowerCase().includes('collection') ||
+        param.type.toLowerCase().includes('enumerable');
+      const multipleAttr = isMultiple ? 'multiple' : '';
+      const helpText = isMultiple ? 'Select one or more files to upload' : 'Select a file to upload';
+      const inputId = `param-file-${endpointIdentifier}-${param.name}`;
+      const infoId = `file-info-${endpointIdentifier}-${param.name}`;
+
+      return `
           <div class="tryout-parameter-row" style="align-items: stretch;">
             <label class="tryout-parameter-label ${param.required ? 'required' : ''}" style="padding-top: 8px;">${param.name}:</label>
             <div style="flex: 1; display: flex; flex-direction: column; gap: 4px;">
@@ -1838,7 +1898,7 @@ function renderTryItOutParameters(endpoint, endpointIdentifier) {
             <span class="tryout-parameter-type">${param.type}</span>
           </div>
         `;
-        }).join('')}
+    }).join('')}
       </div>
     `;
   }
@@ -1934,7 +1994,7 @@ function saveEndpointStates() {
       }
     }
   });
-  
+
   // Save response data for each endpoint
   Object.keys(endpointResponses).forEach(endpointId => {
     const responseContainer = document.getElementById(`tryout-response-${endpointId}`);
@@ -1956,7 +2016,7 @@ function restoreEndpointStates() {
       responseContainer.style.display = endpointResponses[endpointId].visible ? 'block' : 'none';
     }
   });
-  
+
   // Auto-resize textareas in restored content
   setupTextareaAutoResize();
 }
@@ -2003,7 +2063,7 @@ function switchTab(event, endpointId, tabName) {
   })
 
   document.getElementById(`${endpointId}-${tabName}`).classList.add("active")
-    
+
   endpointActiveTabs[endpointId] = tabName;
 
   const activeTab = document.getElementById(`${endpointId}-${tabName}`);
@@ -2012,7 +2072,7 @@ function switchTab(event, endpointId, tabName) {
 
 function copyToClipboard(button) {
   const codeBlock = button.parentElement.nextElementSibling;
-  
+
   const text = codeBlock.textContent;
   navigator.clipboard.writeText(text).then(() => {
     button.innerHTML = "✓";
@@ -2037,11 +2097,11 @@ function updateFileInputLabel(inputId, infoId) {
   const label = document.getElementById(`label-${inputId}`);
   const labelText = document.getElementById(`label-text-${inputId}`);
   const infoContainer = document.getElementById(infoId);
-  
+
   if (!input || !label || !labelText || !infoContainer) return;
-  
+
   const files = input.files;
-  
+
   if (files.length === 0) {
     // No files selected - reset to default
     label.classList.remove('has-files');
@@ -2051,7 +2111,7 @@ function updateFileInputLabel(inputId, infoId) {
     // Files selected - update UI
     label.classList.add('has-files');
     labelText.textContent = files.length === 1 ? files[0].name : `${files.length} files selected`;
-    
+
     // Show file details
     infoContainer.innerHTML = Array.from(files).map((file, index) => `
       <div class="file-input-filename">
@@ -2078,17 +2138,17 @@ function formatFileSize(bytes) {
 
 function getInputTypeForProperty(propType) {
   const typeLower = propType.toLowerCase();
-  
+
   if (typeLower.includes('iformfile') || typeLower.includes('formfile')) {
     return 'file';
   }
-  
-  if (typeLower.includes('int') || typeLower.includes('long') || typeLower.includes('short') || 
-      typeLower.includes('byte') || typeLower.includes('decimal') || 
-      typeLower.includes('double') || typeLower.includes('float')) {
+
+  if (typeLower.includes('int') || typeLower.includes('long') || typeLower.includes('short') ||
+    typeLower.includes('byte') || typeLower.includes('decimal') ||
+    typeLower.includes('double') || typeLower.includes('float')) {
     return 'number';
   }
-  
+
   return 'text';
 }
 
@@ -2098,13 +2158,13 @@ async function executeEndpointById(controllerName, endpointIndex) {
     console.error('Controller not found:', controllerName);
     return;
   }
-  
+
   const endpoint = controller.endpoints[endpointIndex];
   if (!endpoint) {
     console.error('Endpoint not found at index:', endpointIndex);
     return;
   }
-  
+
   const endpointIdentifier = `${controllerName}-${endpointIndex}`;
   await executeEndpoint(endpoint, endpointIdentifier);
 }
@@ -2112,14 +2172,14 @@ async function executeEndpointById(controllerName, endpointIndex) {
 async function executeEndpoint(endpoint, endpointIdentifier) {
   const responseContainerId = `tryout-response-${endpointIdentifier}`;
   const responseContainer = document.getElementById(responseContainerId);
-  
+
   if (!responseContainer) {
     return;
   }
-  
+
   responseContainer.style.display = 'block';
   responseContainer.innerHTML = '<p>Executing request...</p>';
-  
+
   endpointResponses[endpointIdentifier] = {
     html: '<p>Executing request...</p>',
     visible: true
@@ -2137,12 +2197,12 @@ async function executeEndpoint(endpoint, endpointIdentifier) {
 
     const response = await fetch(finalUrl, requestOptions);
     const responseText = await response.text();
-    
+
     const endTime = performance.now();
     const duration = Math.round(endTime - startTime);
     const requestSize = requestOptions.body ? new Blob([requestOptions.body]).size : 0;
     const responseSize = new Blob([responseText]).size;
-    
+
     // Collect parameter values for history (excluding files)
     const parameterValues = {};
     if (endpoint.parameters) {
@@ -2151,7 +2211,7 @@ async function executeEndpoint(endpoint, endpointIdentifier) {
         if (param.source === "File" || param.isFile) {
           return;
         }
-        
+
         // Get parameter value from form
         let paramValue = null;
         if (param.source === "Form" && param.schema && param.schema.properties) {
@@ -2172,7 +2232,7 @@ async function executeEndpoint(endpoint, endpointIdentifier) {
             paramValue = input.value;
           }
         }
-        
+
         if (paramValue !== null) {
           parameterValues[param.name] = {
             value: paramValue,
@@ -2182,7 +2242,7 @@ async function executeEndpoint(endpoint, endpointIdentifier) {
         }
       });
     }
-    
+
     // Get request body if present (excluding FormData with files)
     let historyBody = null;
     if (body && !(body instanceof FormData)) {
@@ -2198,21 +2258,21 @@ async function executeEndpoint(endpoint, endpointIdentifier) {
         historyBody = JSON.stringify(formObj);
       }
     }
-    
+
     // Add to history with endpoint metadata
     addToHistory(
-      { 
-        method, 
-        url: finalUrl, 
-        headers, 
-        body: historyBody 
+      {
+        method,
+        url: finalUrl,
+        headers,
+        body: historyBody
       },
-      { 
-        status: response.status, 
-        statusText: response.statusText, 
-        durationMs: duration, 
-        sizeBytes: responseSize, 
-        body: responseText 
+      {
+        status: response.status,
+        statusText: response.statusText,
+        durationMs: duration,
+        sizeBytes: responseSize,
+        body: responseText
       },
       {
         endpointPath: endpoint.path,
@@ -2223,7 +2283,7 @@ async function executeEndpoint(endpoint, endpointIdentifier) {
         parameters: parameterValues
       }
     );
-    
+
     let responseData;
     try {
       responseData = JSON.parse(responseText);
@@ -2232,7 +2292,7 @@ async function executeEndpoint(endpoint, endpointIdentifier) {
     }
 
     const statusClass = response.ok ? 'status-2xx' : 'status-4xx';
-    
+
     const responseHtml = `
       <div class="response-success" style="margin-top: 12px;">
         <div class="response-status" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
@@ -2256,10 +2316,10 @@ async function executeEndpoint(endpoint, endpointIdentifier) {
               <button class="copy-btn save-btn" 
                       onclick="saveToFile(this, 'api-response')" 
                       data-endpoint='${JSON.stringify({
-                        httpMethodType: endpoint.httpMethodType,
-                        path: endpoint.path,
-                        methodName: endpoint.methodName
-                      })}' 
+      httpMethodType: endpoint.httpMethodType,
+      path: endpoint.path,
+      methodName: endpoint.methodName
+    })}' 
                       title="Save to file">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                   <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path>
@@ -2274,9 +2334,9 @@ async function executeEndpoint(endpoint, endpointIdentifier) {
       </div>
       ${generatePerformanceHtml(duration, requestSize, responseSize, response.status)}
     `;
-    
+
     responseContainer.innerHTML = responseHtml;
-    
+
     endpointResponses[endpointIdentifier] = {
       html: responseHtml,
       visible: true
@@ -2285,7 +2345,7 @@ async function executeEndpoint(endpoint, endpointIdentifier) {
   } catch (error) {
     const endTime = performance.now();
     const duration = Math.round(endTime - startTime);
-    
+
     // Add failed request to history
     try {
       const { url: finalUrl, method, headers, body } = buildRequestData({
@@ -2294,12 +2354,12 @@ async function executeEndpoint(endpoint, endpointIdentifier) {
         validateBody: false,
         allowEmptyPathParams: true
       });
-      
+
       let historyBody = null;
       if (body && !(body instanceof FormData)) {
         historyBody = body;
       }
-      
+
       addToHistory(
         { method, url: finalUrl, headers, body: historyBody },
         { status: 0, statusText: 'Error', durationMs: duration, sizeBytes: 0, body: error.message },
@@ -2314,15 +2374,15 @@ async function executeEndpoint(endpoint, endpointIdentifier) {
     } catch (historyError) {
       console.error('[History] Failed to save error to history:', historyError);
     }
-    
+
     const errorHtml = `
       <div class="response-error" style="margin-top: 12px;">
         <h5>Error</h5>
         <p style="color: var(--error-text);">${error.message}</p>
       </div>
-    `;    
+    `;
     responseContainer.innerHTML = errorHtml;
-    
+
     endpointResponses[endpointIdentifier] = {
       html: errorHtml,
       visible: true
@@ -2335,7 +2395,7 @@ function copyResponseToClipboard(button) {
   const buttonContainer = button.parentElement;
   const preElement = buttonContainer.nextElementSibling;
   const responseBody = preElement ? preElement.textContent : '';
-  
+
   navigator.clipboard.writeText(responseBody).then(() => {
     button.innerHTML = "✓";
     setTimeout(() => {
@@ -2352,7 +2412,7 @@ function copyResponseToClipboard(button) {
 function saveToFile(button, type, endpointInfo = null) {
   const buttonContainer = button.parentElement;
   let content;
-  
+
   if (buttonContainer.nextElementSibling) {
     // For cases where buttons are in a container (API responses)
     content = buttonContainer.nextElementSibling.textContent;
@@ -2360,7 +2420,7 @@ function saveToFile(button, type, endpointInfo = null) {
     // For cases where button is directly positioned (static examples) 
     content = button.nextElementSibling.textContent;
   }
-  
+
   if (!endpointInfo && button.dataset.endpoint) {
     try {
       endpointInfo = JSON.parse(button.dataset.endpoint);
@@ -2368,10 +2428,10 @@ function saveToFile(button, type, endpointInfo = null) {
       console.error('Failed to parse endpoint data:', e);
     }
   }
-  
+
   const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
   let filename;
-  
+
   if (endpointInfo) {
     const method = endpointInfo.httpMethodType.toLowerCase();
     const pathName = endpointInfo.path.replace(/[{}/]/g, '').replace(/\//g, '-').replace(/^-+|-+$/g, '');
@@ -2380,7 +2440,7 @@ function saveToFile(button, type, endpointInfo = null) {
   } else {
     filename = `${type}-${timestamp}.json`;
   }
-  
+
   const blob = new Blob([content], { type: 'application/json' });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
@@ -2388,7 +2448,7 @@ function saveToFile(button, type, endpointInfo = null) {
   a.download = filename;
   a.click();
   URL.revokeObjectURL(url);
-  
+
   const originalIcon = button.innerHTML;
   button.innerHTML = "✓";
   setTimeout(() => {
@@ -2457,7 +2517,7 @@ function switchBodyEditorMode() {
   const mode = document.getElementById('bodyEditorMode').value;
   const jsonEditor = document.getElementById('requestBody');
   const keyValueEditor = document.getElementById('requestBodyKvEditor');
-  
+
   if (mode === 'json') {
     if (keyValueEditor.style.display !== 'none') {
       const keyValueData = getRequestBuilderKeyValueData();
@@ -2465,7 +2525,7 @@ function switchBodyEditorMode() {
         jsonEditor.value = JSON.stringify(keyValueData, null, 2);
       }
     }
-    
+
     jsonEditor.style.display = 'block';
     keyValueEditor.style.display = 'none';
     // Auto-resize the JSON editor
@@ -2477,7 +2537,7 @@ function switchBodyEditorMode() {
     } catch (e) {
       populateRequestBuilderKeyValueEditor({});
     }
-    
+
     jsonEditor.style.display = 'none';
     keyValueEditor.style.display = 'block';
   }
@@ -2549,7 +2609,7 @@ function switchTryItOutBodyEditorMode(jsonEditorId, keyValueEditorId) {
   const mode = selectElement.value;
   const jsonEditor = document.getElementById(jsonEditorId);
   const keyValueEditor = document.getElementById(keyValueEditorId);
-  
+
   if (mode === 'json') {
     if (keyValueEditor.style.display !== 'none') {
       const keyValueData = getKeyValueData(keyValueEditorId);
@@ -2557,7 +2617,7 @@ function switchTryItOutBodyEditorMode(jsonEditorId, keyValueEditorId) {
         jsonEditor.value = JSON.stringify(keyValueData, null, 2);
       }
     }
-    
+
     jsonEditor.style.display = 'block';
     keyValueEditor.style.display = 'none';
     // Auto-resize the JSON editor
@@ -2622,7 +2682,7 @@ function getRequestBuilderKeyValueData() {
 function getRequestBuilderBodyContent() {
   const bodyEditorMode = document.getElementById("bodyEditorMode").value;
   const body = document.getElementById("requestBody").value;
-  
+
   if (bodyEditorMode === 'keyvalue') {
     const keyValueData = getRequestBuilderKeyValueData();
     if (Object.keys(keyValueData).length > 0) {
@@ -2631,7 +2691,7 @@ function getRequestBuilderBodyContent() {
   } else if (body) {
     return body;
   }
-  
+
   return '';
 }
 
@@ -2661,7 +2721,7 @@ async function sendRequest() {
       customHeaders[header.key] = header.value
     }
   })
-  
+
   let requestBody = null;
   if (method !== "GET") {
     requestBody = getRequestBuilderBodyContent();
@@ -2706,7 +2766,7 @@ async function sendRequest() {
       } catch (e) {
         formattedResponse = responseText;
       }
-      
+
       responseContainer.innerHTML = `
                 <div class="response-success">
                     <div class="response-status">
@@ -2742,13 +2802,13 @@ async function sendRequest() {
 
     // Switch to response tab
     document.querySelector('[data-tab="response"]').click()
-  } catch (error) {    
+  } catch (error) {
     const responseContainer = document.getElementById("responseContainer")
-    
+
     // Add failed request to history (network errors, etc.)
     const endTime = performance.now();
     const duration = Math.round(endTime - startTime);
-    
+
     // Only add to history if it wasn't already added (for HTTP errors that were caught above)
     if (!error.message.match(/^\d{3}\s/)) {
       addToHistory(
@@ -2757,7 +2817,7 @@ async function sendRequest() {
         { source: 'request-builder', requestBuilderState: { bodyEditorMode: requestBuilderBodyEditorMode } }
       );
     }
-    
+
     responseContainer.innerHTML = `
             <div class="response-error">
                 <h5>Error</h5>
@@ -2774,10 +2834,10 @@ async function sendRequest() {
 function clearSearch() {
   const searchInput = document.getElementById("searchInput")
   const clearBtn = document.getElementById("clearSearchBtn")
-  
+
   searchInput.value = ""
   clearBtn.style.display = "none"
-  filterControllers() 
+  filterControllers()
 }
 
 function filterControllers() {
@@ -2795,7 +2855,7 @@ function filterControllers() {
   cards.forEach((card) => {
     const controllerName = card.querySelector("h3").textContent
     const controller = controllers.find(c => c.name === controllerName)
-    
+
     if (!controller) {
       card.style.display = "none"
       return
@@ -2807,7 +2867,7 @@ function filterControllers() {
       return
     }
 
-    const hasMatchingEndpoint = controller.endpoints.some(endpoint => 
+    const hasMatchingEndpoint = controller.endpoints.some(endpoint =>
       doesEndpointMatchQuery(endpoint, query)
     )
 
@@ -2822,20 +2882,20 @@ function filterControllers() {
       card.style.display = "none"
     }
   })
-  
+
   if (query.trim()) {
     if (visibleControllers.length === 1) {
       if (selectedController !== visibleControllers[0].name) {
         selectedController = visibleControllers[0].name
         expandedEndpoints = []
-        renderControllers() 
+        renderControllers()
       }
     } else if (visibleControllers.length > 1) {
       const isCurrentSelectionVisible = visibleControllers.some(c => c.name === selectedController)
       if (!isCurrentSelectionVisible && visibleControllers.length > 0) {
         selectedController = visibleControllers[0].name
         expandedEndpoints = []
-        renderControllers() 
+        renderControllers()
       }
     }
   } else {
@@ -2845,7 +2905,7 @@ function filterControllers() {
       renderControllers()
     }
   }
-  
+
   renderEndpoints()
 }
 
@@ -2855,7 +2915,7 @@ function showExportModal(controllerName, endpointIndex) {
     alert('Unable to generate export data');
     return;
   }
-  
+
   showGenericExportModal(requestData, 'endpoint');
 }
 
@@ -2870,9 +2930,9 @@ function showGenericExportModal(requestData, type = 'endpoint') {
   } else {
     window.currentExportData = requestData;
   }
-  
+
   updateExportCode('curl', type);
-  
+
   const modalId = type === 'requestBuilder' ? 'requestBuilderExportModal' : 'exportModal';
   document.getElementById(modalId).classList.add('show');
 }
@@ -2880,7 +2940,7 @@ function showGenericExportModal(requestData, type = 'endpoint') {
 function updateExportCode(format, type = 'endpoint') {
   const dataKey = type === 'requestBuilder' ? 'currentRequestBuilderExportData' : 'currentExportData';
   if (!window[dataKey]) return;
-  
+
   const { url, method, headers, body, formFields } = window[dataKey];
   let code = '';
 
@@ -2903,23 +2963,39 @@ function updateExportCode(format, type = 'endpoint') {
     default:
       code = 'Format not supported';
   }
-  
+
   const codeContentId = type === 'requestBuilder' ? 'requestBuilderExportCodeContent' : 'exportCodeContent';
-  document.getElementById(codeContentId).textContent = code;
-  
+  document.getElementById(codeContentId).value = code;
+
   const modalId = type === 'requestBuilder' ? 'requestBuilderExportModal' : 'exportModal';
   const modal = document.getElementById(modalId);
   modal.querySelectorAll('.export-tab').forEach(tab => {
     tab.classList.remove('active');
   });
   modal.querySelector(`[data-export-format="${format}"]`).classList.add('active');
+
+  // "Open in Request Builder" only understands cURL — gate it on the active format.
+  if (type !== 'requestBuilder') {
+    const openBtn = document.getElementById('openInRequestBuilderBtn');
+    const hint = document.getElementById('exportEditHint');
+    const isCurl = format === 'curl';
+    if (openBtn) {
+      openBtn.disabled = !isCurl;
+      openBtn.title = isCurl ? '' : 'Switch to the cURL tab to load this request into the builder';
+    }
+    if (hint) {
+      hint.textContent = isCurl
+        ? 'Edit the snippet (e.g. comma-separated query values) then load it into the Request Builder.'
+        : 'Switch to the cURL tab to load an edited request into the Request Builder.';
+    }
+  }
 }
 
 function copyExportCode(type = 'endpoint') {
   const codeContentId = type === 'requestBuilder' ? 'requestBuilderExportCodeContent' : 'exportCodeContent';
   const buttonId = type === 'requestBuilder' ? 'copyRequestBuilderExportBtn' : 'copyExportBtn';
-  
-  const codeContent = document.getElementById(codeContentId).textContent;
+
+  const codeContent = document.getElementById(codeContentId).value;
   navigator.clipboard.writeText(codeContent).then(() => {
     const button = document.getElementById(buttonId);
     const originalText = button.innerHTML;
@@ -2934,11 +3010,11 @@ function downloadExportCode(type = 'endpoint') {
   const modalId = type === 'requestBuilder' ? 'requestBuilderExportModal' : 'exportModal';
   const codeContentId = type === 'requestBuilder' ? 'requestBuilderExportCodeContent' : 'exportCodeContent';
   const buttonId = type === 'requestBuilder' ? 'downloadRequestBuilderExportBtn' : 'downloadExportBtn';
-  
+
   const modal = document.getElementById(modalId);
   const format = modal.querySelector('.export-tab.active').dataset.exportFormat;
-  const codeContent = document.getElementById(codeContentId).textContent;
-  
+  const codeContent = document.getElementById(codeContentId).value;
+
   const extensions = {
     curl: 'sh',
     javascript: 'js',
@@ -2946,11 +3022,11 @@ function downloadExportCode(type = 'endpoint') {
     ruby: 'rb',
     csharp: 'cs'
   };
-  
+
   const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
   const prefix = type === 'requestBuilder' ? 'request-builder' : 'api-request';
   const filename = `${prefix}-${format}-${timestamp}.${extensions[format] || 'txt'}`;
-  
+
   const blob = new Blob([codeContent], { type: 'text/plain' });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
@@ -2958,7 +3034,7 @@ function downloadExportCode(type = 'endpoint') {
   a.download = filename;
   a.click();
   URL.revokeObjectURL(url);
-  
+
   const button = document.getElementById(buttonId);
   const originalText = button.innerHTML;
   button.innerHTML = '✓';
@@ -2967,24 +3043,44 @@ function downloadExportCode(type = 'endpoint') {
   }, 2000);
 }
 
+// Parses the (possibly hand-edited) cURL snippet from the endpoint export modal and loads it
+// into the Request Builder. Lets users craft request shapes the generated fields can't express
+// (e.g. comma-separated query values for [SeparatedQueryString] endpoints).
+function openExportInRequestBuilder() {
+  const code = document.getElementById('exportCodeContent').value;
+  const parsed = parseCurl(code);
+
+  const hasUsefulData = parsed.url || parsed.headers.length > 0 || parsed.body;
+  if (!hasUsefulData) {
+    alert('Could not parse a request from the snippet. Make sure the cURL tab is selected and the command is valid.');
+    return;
+  }
+
+  applyCurlImport(parsed);
+
+  // Close the export modal, then open the Request Builder modal with the imported request.
+  hideModal('exportModal');
+  showModal('requestBuilderModal');
+}
+
 function buildRequestBuilderExportData() {
   const method = document.getElementById("requestMethod").value;
   const url = document.getElementById("requestUrl").value;
-  
+
   const customHeaders = { 'Content-Type': 'application/json' };
   requestHeaders.forEach((header) => {
     if (header.key && header.value) {
       customHeaders[header.key] = header.value;
     }
   });
-  
+
   const authHeaders = getAuthHeaders();
   Object.keys(authHeaders).forEach(key => {
     if (!customHeaders[key]) {
       customHeaders[key] = authHeaders[key];
     }
   });
-  
+
   let requestBody = null;
   if (method !== "GET") {
     const requestBodyContent = getRequestBuilderBodyContent();
@@ -2992,7 +3088,7 @@ function buildRequestBuilderExportData() {
       requestBody = requestBodyContent;
     }
   }
-  
+
   return {
     url: url,
     method: method,
@@ -3024,7 +3120,7 @@ function switchRequestTab(tabName) {
   })
 
   document.getElementById(`${tabName}-tab`).classList.add("active")
-  
+
   // Auto-resize textareas in the newly visible tab
   const activeTab = document.getElementById(`${tabName}-tab`);
   if (activeTab) setupTextareaAutoResize(activeTab);
@@ -3036,18 +3132,18 @@ document.addEventListener("DOMContentLoaded", async () => {
   if (typeof KayaStorage !== 'undefined') {
     KayaStorage.cleanup();
   }
-  
+
   initializeTheme()
-  
+
   loadAuthConfiguration()
-  
+
   // Initialize history panel
   renderHistoryPanel()
-  
+
   await checkOpenApiAvailability()
 
   await loadApiData()
-  
+
   renderHeaders()
 
   // Show SignalR Explorer button if enabled
@@ -3063,9 +3159,9 @@ document.addEventListener("DOMContentLoaded", async () => {
   }
 
   document.getElementById("searchInput").addEventListener("input", filterControllers)
-  
+
   // Also add event listener to show/hide clear button on input
-  document.getElementById("searchInput").addEventListener("input", function() {
+  document.getElementById("searchInput").addEventListener("input", function () {
     const clearBtn = document.getElementById("clearSearchBtn")
     if (this.value.trim()) {
       clearBtn.style.display = "flex"
