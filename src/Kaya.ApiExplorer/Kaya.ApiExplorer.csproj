@@ -6,20 +6,19 @@
     <Nullable>enable</Nullable>
     <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
     <PackageId>Kaya.ApiExplorer</PackageId>
-    <PackageVersion>2.4.0</PackageVersion>
+    <PackageVersion>2.4.1</PackageVersion>
     <Authors>RazvanGolan</Authors>
     <Company>RazvanGolan</Company>
     <Product>Kaya API Explorer</Product>
-    <Description>A lightweight API documentation tool for .NET applications that automatically scans your HTTP endpoints and displays them in a beautiful, interactive UI. Features automatic endpoint discovery, clean modern interface, detailed parameter and response information, easy integration, code export capabilities, and advanced request building tools. Also includes SignalR Debug Tool for real-time hub testing and debugging.</Description>
-    <PackageTags>api;explorer;documentation;endpoints;aspnetcore;middleware;ui;interactive;signalr;realtime;websockets;</PackageTags>
+    <Description>An interactive API debugging and exploration tool for .NET applications. Automatically discovers your HTTP endpoints and provides an UI designed specifically for real-time testing and debugging. Features an advanced request builder with cURL import/export, dynamic payload generation, detailed response analysis, and a dedicated SignalR Debug Tool for seamless WebSocket and hub testing.</Description>    <PackageTags>api;explorer;documentation;endpoints;aspnetcore;middleware;ui;interactive;signalr;realtime;websockets;</PackageTags>
     <RepositoryUrl>https://github.com/RazvanGolan/Kaya</RepositoryUrl>
     <RepositoryType>git</RepositoryType>
     <PackageProjectUrl>https://github.com/RazvanGolan/Kaya</PackageProjectUrl>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
     <PackageReadmeFile>README.md</PackageReadmeFile>
     <PackageIcon>icon.png</PackageIcon>
-    <PackageReleaseNotes>Version 2.4.0: Added cURL import for the request builder and introduced the ExcludePathPatterns option to filter internal endpoints. Theme configuration was removed (can still change it from UI and will persist) and related configuration behavior updated. Fixed path parameter handling when explicit casts are specified.</PackageReleaseNotes>
-  </PropertyGroup>  
+    <PackageReleaseNotes>Version 2.4.1: Added option to load exported cURL in request builder and edit it. Added option to choose request content type (JSON, Form Data, URL Encoded). Fixed request payload type to correctly use Form Data when an IFormFile is present. Fixed UI input display issues for complex query parameters.</PackageReleaseNotes>
+  </PropertyGroup>
   <ItemGroup>
     <FrameworkReference Include="Microsoft.AspNetCore.App" />
   </ItemGroup>
