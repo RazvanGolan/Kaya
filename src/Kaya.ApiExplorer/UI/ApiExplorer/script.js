@@ -649,6 +649,61 @@ function generateCSharpCode(url, method, headers, body, formFields = null) {
   return code;
 }
 
+// Returns the active send mode for an endpoint: the user's Try It Out selection if present,
+// otherwise the auto-detected default (multipart when the endpoint has file/form params, else json).
+function getSelectedSendMode(endpoint, endpointIdentifier) {
+  const el = endpointIdentifier ? document.getElementById(`sendMode-${endpointIdentifier}`) : null;
+  if (el && el.value) return el.value;
+  const hasForm = endpoint && endpoint.parameters &&
+    endpoint.parameters.some(p => p.source === 'Form' || p.source === 'File' || p.isFile);
+  return hasForm ? 'multipart' : 'json';
+}
+
+// Reads the JSON request-body editor (textarea or key-value) for a body endpoint. Returns '' if empty.
+function readBodyEditorContent(endpointIdentifier) {
+  const bodyTextarea = document.getElementById(`request-body-${endpointIdentifier}`);
+  const keyValueEditor = document.getElementById(`request-body-kv-${endpointIdentifier}`);
+  if (keyValueEditor && keyValueEditor.style.display !== 'none') {
+    const kv = getKeyValueData(`request-body-kv-${endpointIdentifier}`);
+    return Object.keys(kv).length > 0 ? JSON.stringify(kv) : '';
+  }
+  if (bodyTextarea && bodyTextarea.value.trim()) return bodyTextarea.value.trim();
+  return '';
+}
+
+// Collects values from the rendered File and Form inputs as a flat list of { name, value | file }.
+function collectFormFieldEntries(endpoint, endpointIdentifier) {
+  const entries = [];
+  if (!endpoint || !endpoint.parameters) return entries;
+
+  endpoint.parameters.filter(p => p.source === 'File' || p.isFile).forEach(param => {
+    const fileInput = document.getElementById(`param-file-${endpointIdentifier}-${param.name}`);
+    if (fileInput && fileInput.files.length > 0) {
+      Array.from(fileInput.files).forEach(file => entries.push({ name: param.name, file }));
+    }
+  });
+
+  endpoint.parameters.filter(p => p.source === 'Form').forEach(param => {
+    if (param.schema && param.schema.properties && Object.keys(param.schema.properties).length > 0) {
+      Object.keys(param.schema.properties).forEach(propName => {
+        const input = document.getElementById(`param-${endpointIdentifier}-${param.name}.${propName}`);
+        if (!input) return;
+        const fieldName = `${param.name}.${propName}`;
+        if (input.type === 'file') {
+          if (input.files && input.files.length > 0) entries.push({ name: fieldName, file: input.files[0] });
+        } else if (input.value !== '' && input.value != null) {
+          entries.push({ name: fieldName, value: input.value });
+        }
+      });
+    } else {
+      const input = document.getElementById(`param-${endpointIdentifier}-${param.name}`);
+      if (input && input.value) entries.push({ name: param.name, value: input.value });
+    }
+  });
+
+  return entries;
+}
+
 function buildRequestData(config) {
   const {
     endpoint,
@@ -709,16 +764,14 @@ function buildRequestData(config) {
     finalUrl = window.location.origin + (finalUrl.startsWith('/') ? '' : '/') + finalUrl;
   }
 
-  const hasFileParams = endpoint && endpoint.parameters &&
-    endpoint.parameters.some(p => p.source === "File" || p.isFile);
+  // Send mode: explicit user choice from the Try It Out selector, else auto-detected.
+  const sendMode = getSelectedSendMode(endpoint, endpointIdentifier);
 
-  const hasFormParams = endpoint && endpoint.parameters &&
-    endpoint.parameters.some(p => p.source === "Form");
-
-  // Use multipart/form-data for file or form parameters (let browser set the boundary)
-  const hasFileOrFormParams = hasFileParams || hasFormParams;
-
-  const headers = hasFileOrFormParams ? { ...customHeaders } : { 'Content-Type': 'application/json', ...customHeaders };
+  // Content-Type per mode. multipart/form-data is left unset so the browser adds the boundary.
+  // Any explicit custom header always wins.
+  const headers = { ...customHeaders };
+  if (sendMode === 'json' && !headers['Content-Type']) headers['Content-Type'] = 'application/json';
+  if (sendMode === 'urlencoded' && !headers['Content-Type']) headers['Content-Type'] = 'application/x-www-form-urlencoded';
 
   if (endpoint && endpoint.parameters && endpointIdentifier) {
     const headerParams = endpoint.parameters.filter(p => p.source === "Header") || [];
@@ -745,132 +798,58 @@ function buildRequestData(config) {
   const method = endpoint ? endpoint.httpMethodType : 'GET';
 
   if (method !== 'GET' && endpoint && endpointIdentifier) {
-    // Handle file uploads or form data with multipart/form-data
-    if (hasFileOrFormParams) {
+    const formEntries = collectFormFieldEntries(endpoint, endpointIdentifier);
+    const jsonBodyRaw = endpoint.requestBody ? readBodyEditorContent(endpointIdentifier) : '';
+
+    if (sendMode === 'multipart') {
       const formData = new FormData();
-
-      // Add file parameters
-      const fileParams = endpoint.parameters.filter(p => p.source === "File" || p.isFile);
-      fileParams.forEach(param => {
-        const fileInput = document.getElementById(`param-file-${endpointIdentifier}-${param.name}`);
-        if (fileInput && fileInput.files.length > 0) {
-          // Check if this is an array/collection type that accepts multiple files
-          const isMultiple = param.type.includes('[]') ||
-            param.type.toLowerCase().includes('list') ||
-            param.type.toLowerCase().includes('collection') ||
-            param.type.toLowerCase().includes('enumerable');
-
-          if (isMultiple) {
-            // Append all files for array/collection types
-            Array.from(fileInput.files).forEach(file => {
-              formData.append(param.name, file);
-            });
-          } else {
-            // Append only the first file for single file parameters
-            formData.append(param.name, fileInput.files[0]);
-          }
-        }
-      });
-
-      // Add form parameters (FromForm)
-      const formParams = endpoint.parameters.filter(p => p.source === "Form");
-      formParams.forEach(param => {
-        // Check if this is a complex type with schema (multiple properties)
-        if (param.schema && param.schema.properties && Object.keys(param.schema.properties).length > 0) {
-          // Collect values from all property input fields
-          const properties = param.schema.properties;
-          Object.keys(properties).forEach(propName => {
-            const propInput = document.getElementById(`param-${endpointIdentifier}-${param.name}.${propName}`);
-            if (propInput) {
-              if (propInput.type === 'file') {
-                if (propInput.files && propInput.files.length > 0) {
-                  formData.append(`${param.name}.${propName}`, propInput.files[0]);
-                }
-                return;
-              } else {
-                const value = propInput.value;
-                if (value !== '' && value !== null && value !== undefined) {
-                  formData.append(`${param.name}.${propName}`, value);
-                }
-              }
-            }
+      formEntries.forEach(e => formData.append(e.name, 'file' in e ? e.file : e.value));
+      // Body endpoint sent as form: expand the JSON body's top-level keys into fields.
+      if (jsonBodyRaw) {
+        try {
+          const bodyData = JSON.parse(jsonBodyRaw);
+          Object.entries(bodyData).forEach(([key, value]) => {
+            formData.append(key, typeof value === 'object' ? JSON.stringify(value) : value);
           });
-        } else {
-          // Simple form parameter
-          const paramInput = document.getElementById(`param-${endpointIdentifier}-${param.name}`);
-          if (paramInput && paramInput.value) {
-            formData.append(param.name, paramInput.value);
-          }
-        }
-      });
-
-      // Add other Body parameters as form fields (legacy support)
-      const bodyParams = endpoint.parameters.filter(p => p.source === "Body");
-      bodyParams.forEach(param => {
-        const paramInput = document.getElementById(`param-${endpointIdentifier}-${param.name}`);
-        if (paramInput && paramInput.value) {
-          formData.append(param.name, paramInput.value);
-        }
-      });
-
-      // Add request body content if exists (for additional JSON data)
-      if (endpoint.requestBody) {
-        const bodyTextarea = document.getElementById(`request-body-${endpointIdentifier}`);
-        const keyValueEditor = document.getElementById(`request-body-kv-${endpointIdentifier}`);
-
-        let requestBodyContent = '';
-
-        if (keyValueEditor && keyValueEditor.style.display !== 'none') {
-          const keyValueData = getKeyValueData(`request-body-kv-${endpointIdentifier}`);
-          if (Object.keys(keyValueData).length > 0) {
-            requestBodyContent = JSON.stringify(keyValueData);
-          }
-        } else if (bodyTextarea && bodyTextarea.value.trim()) {
-          requestBodyContent = bodyTextarea.value.trim();
-        }
-
-        if (requestBodyContent) {
-          // Add body content as individual form fields
-          try {
-            const bodyData = JSON.parse(requestBodyContent);
-            Object.entries(bodyData).forEach(([key, value]) => {
-              formData.append(key, typeof value === 'object' ? JSON.stringify(value) : value);
-            });
-          } catch (e) {
-            // If not JSON, add as single field
-            formData.append('data', requestBodyContent);
-          }
+        } catch {
+          formData.append('data', jsonBodyRaw);
         }
       }
-
       requestBody = formData;
-    } else if (endpoint.requestBody) {
-      // Regular JSON body
-      const bodyTextarea = document.getElementById(`request-body-${endpointIdentifier}`);
-      const keyValueEditor = document.getElementById(`request-body-kv-${endpointIdentifier}`);
-
-      let requestBodyContent = '';
-
-      if (keyValueEditor && keyValueEditor.style.display !== 'none') {
-        const keyValueData = getKeyValueData(`request-body-kv-${endpointIdentifier}`);
-        if (Object.keys(keyValueData).length > 0) {
-          requestBodyContent = JSON.stringify(keyValueData);
-        }
-      } else if (bodyTextarea && bodyTextarea.value.trim()) {
-        requestBodyContent = bodyTextarea.value.trim();
+    } else if (sendMode === 'urlencoded') {
+      // Files cannot be carried in url-encoded form data — they are skipped.
+      const params = new URLSearchParams();
+      formEntries.filter(e => !('file' in e)).forEach(e => params.append(e.name, e.value));
+      if (jsonBodyRaw) {
+        try {
+          const bodyData = JSON.parse(jsonBodyRaw);
+          Object.entries(bodyData).forEach(([key, value]) => {
+            params.append(key, typeof value === 'object' ? JSON.stringify(value) : value);
+          });
+        } catch { /* non-JSON body cannot be expanded into url-encoded fields */ }
       }
-
-      if (requestBodyContent) {
+      const encoded = params.toString();
+      if (encoded) requestBody = encoded;
+    } else {
+      // json
+      let content = jsonBodyRaw;
+      if (!content && formEntries.length > 0) {
+        // Form/file endpoint sent as JSON: build an object from the non-file fields.
+        const obj = {};
+        formEntries.filter(e => !('file' in e)).forEach(e => { obj[e.name] = e.value; });
+        content = JSON.stringify(obj, null, 2);
+      }
+      if (content) {
         if (validateBody) {
           try {
-            if (headers['Content-Type'].includes('json')) {
-              JSON.parse(requestBodyContent);
+            if ((headers['Content-Type'] || '').includes('json')) {
+              JSON.parse(content);
             }
           } catch (e) {
             throw new Error('Invalid JSON in request body: ' + e.message);
           }
         }
-        requestBody = requestBodyContent;
+        requestBody = content;
       }
     }
   }
@@ -1639,14 +1618,62 @@ function renderResponses(endpoint) {
   return html;
 }
 
+// Whether an endpoint carries file inputs (top-level file param or an IFormFile form property).
+function endpointHasFileInputs(endpoint) {
+  if (!endpoint.parameters) return false;
+  return endpoint.parameters.some(p =>
+    p.source === 'File' || p.isFile ||
+    (p.source === 'Form' && p.schema && p.schema.properties &&
+      Object.values(p.schema.properties).some(pr => /formfile/i.test(pr.type))));
+}
+
+// "Send as" selector — lets the user override how the request body is serialized. Defaults to the
+// auto-detected mode (multipart when there are file/form params, else JSON).
+function renderSendModeSelector(endpoint, endpointIdentifier) {
+  const hasForm = endpoint.parameters &&
+    endpoint.parameters.some(p => p.source === 'Form' || p.source === 'File' || p.isFile);
+  if (!hasForm && !endpoint.requestBody) return '';
+
+  const detected = hasForm ? 'multipart' : 'json';
+  const hasFiles = endpointHasFileInputs(endpoint);
+  const o = (v, label) => `<option value="${v}" ${v === detected ? 'selected' : ''}>${label}</option>`;
+
+  return `
+    <div class="tryout-parameter-group send-mode-group">
+      <div class="send-mode-row">
+        <label class="send-mode-label" for="sendMode-${endpointIdentifier}">Send as:</label>
+        <select id="sendMode-${endpointIdentifier}" class="method-select" data-has-files="${hasFiles}"
+                onchange="updateSendModeHint('${endpointIdentifier}')">
+          ${o('json', 'JSON · application/json')}
+          ${o('multipart', 'Form data · multipart/form-data')}
+          ${o('urlencoded', 'Form data · x-www-form-urlencoded')}
+        </select>
+        <span class="send-mode-hint" id="sendModeHint-${endpointIdentifier}"></span>
+      </div>
+    </div>`;
+}
+
+function updateSendModeHint(endpointIdentifier) {
+  const select = document.getElementById(`sendMode-${endpointIdentifier}`);
+  const hint = document.getElementById(`sendModeHint-${endpointIdentifier}`);
+  if (!select || !hint) return;
+  const hasFiles = select.dataset.hasFiles === 'true';
+  if (!hasFiles) { hint.textContent = ''; return; }
+  if (select.value === 'urlencoded') hint.textContent = 'Files are skipped in url-encoded mode.';
+  else if (select.value === 'json') hint.textContent = 'Files are skipped; other fields sent as JSON.';
+  else hint.textContent = '';
+}
+
 function renderTryItOut(endpoint, index) {
   const endpointIdentifier = `${selectedController}-${index}`;
   const parametersSection = renderTryItOutParameters(endpoint, endpointIdentifier);
+  const sendModeSelector = renderSendModeSelector(endpoint, endpointIdentifier);
   const requestBodySection = renderTryItOutRequestBody(endpoint, endpointIdentifier);
 
   return `
         <div>
             ${parametersSection}
+            ${sendModeSelector}
             ${requestBodySection}
             <div style="display: flex; gap: 8px; margin-bottom: 16px;">
                 <button class="btn btn-primary" style="flex: 1;" onclick="executeEndpointById('${selectedController}', ${index})">
@@ -1677,7 +1704,7 @@ function isCollectionTypeName(typeName) {
   if (!typeName) return false;
   const t = typeName.toLowerCase();
   return t.includes('[]') || t.includes('list') || t.includes('enumerable') ||
-    t.includes('collection') || t.includes('array');
+         t.includes('collection') || t.includes('array');
 }
 
 // Appends a query value, splitting collection values on commas into repeated keys (?k=1&k=2).
@@ -3540,4 +3567,3 @@ function performCurlImport() {
     closeImportCurlModal();
   }
 }
-

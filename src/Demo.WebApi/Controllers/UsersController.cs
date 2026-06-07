@@ -311,7 +311,7 @@ public class UsersController : ControllerBase
     [Consumes("multipart/form-data")]
     public async Task<ActionResult<object>> UpdateProfile(
         int id, 
-        [FromForm] ProfileUpdateFormData formData)
+        ProfileUpdateFormData formData)
     {
         var user = _users.FirstOrDefault(u => u.Id == id);
         if (user == null)

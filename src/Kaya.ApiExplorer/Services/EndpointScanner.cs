@@ -1,5 +1,3 @@
-using System.Reflection;
-using System.Text.RegularExpressions;
 using Kaya.ApiExplorer.Configuration;
 using Kaya.ApiExplorer.Helpers;
 using Kaya.ApiExplorer.Models;
@@ -12,27 +10,29 @@ using Microsoft.AspNetCore.Mvc.Routing;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.AspNetCore.Routing.Patterns;
 using Microsoft.Extensions.DependencyInjection;
-
+using System.Reflection;
+using System.Text.RegularExpressions;
+ 
 namespace Kaya.ApiExplorer.Services;
-
+ 
 public interface IEndpointScanner
 {
     ApiDocumentation ScanEndpoints(IServiceProvider serviceProvider);
 }
-
+ 
 public class EndpointScanner(KayaApiExplorerOptions options) : IEndpointScanner
 {
     private readonly List<Regex> _excludeRegexes = [.. options.Middleware.ExcludePathPatterns
         .Where(p => !string.IsNullOrWhiteSpace(p))
         .Select(p => new Regex(p, RegexOptions.IgnoreCase | RegexOptions.Compiled))];
-
+ 
     private bool IsPathExcluded(string path)
     {
         if (_excludeRegexes.Count is 0) return false;
         var normalized = path.StartsWith('/') ? path : "/" + path;
         return _excludeRegexes.Any(r => r.IsMatch(normalized));
     }
-
+ 
     public ApiDocumentation ScanEndpoints(IServiceProvider serviceProvider)
     {
         var doc = options.Documentation;
@@ -59,17 +59,17 @@ public class EndpointScanner(KayaApiExplorerOptions options) : IEndpointScanner
                 Description = s.Description
             })]
         };
-
+ 
         var assemblies = AppDomain.CurrentDomain.GetAssemblies()
             .Where(a => !a.IsDynamic && !ReflectionHelper.IsSystemAssembly(a)).ToList();
-
+ 
         var controllerGroups = new Dictionary<string, List<ApiEndpoint>>();
-
+ 
         foreach (var assembly in assemblies)
         {
             var controllerTypes = assembly.GetTypes()
                 .Where(t => t.IsSubclassOf(typeof(ControllerBase)) && !t.IsAbstract);
-
+ 
             foreach (var controllerType in controllerTypes)
             {
                 var endpoints = ScanController(controllerType);
@@ -79,26 +79,26 @@ public class EndpointScanner(KayaApiExplorerOptions options) : IEndpointScanner
                 }
                 if (endpoints.Count <= 0)
                     continue;
-                
+ 
                 var controllerName = controllerType.Name;
                 if (!controllerGroups.TryGetValue(controllerName, out _))
                 {
                     controllerGroups[controllerName] = [];
                 }
-                
+ 
                 controllerGroups[controllerName].AddRange(endpoints);
             }
         }
-
+ 
         foreach (var group in controllerGroups)
         {
             var controllerType = assemblies
                 .SelectMany(a => a.GetTypes())
                 .FirstOrDefault(t => t.Name == group.Key);
-            
+ 
             var (requiresAuth, roles) = AttributeHelper.GetAuthorizationInfo(controllerType);
             var (isObsolete, obsoleteMessage) = AttributeHelper.GetObsoleteInfo(controllerType);
-            
+ 
             var controller = new ApiController
             {
                 Name = group.Key,
@@ -111,56 +111,56 @@ public class EndpointScanner(KayaApiExplorerOptions options) : IEndpointScanner
             };
             documentation.Controllers.Add(controller);
         }
-
+ 
         // Scan Minimal API endpoints
         foreach (var minimalController in ScanMinimalApiEndpoints(serviceProvider))
         {
             documentation.Controllers.Add(minimalController);
         }
-
+ 
         return documentation;
     }
-
+ 
     private List<ApiController> ScanMinimalApiEndpoints(IServiceProvider serviceProvider)
     {
         var endpointSources = serviceProvider.GetServices<EndpointDataSource>();
         var groups = new Dictionary<string, List<ApiEndpoint>>(StringComparer.OrdinalIgnoreCase);
-
+ 
         foreach (var source in endpointSources)
         {
             foreach (var endpoint in source.Endpoints)
             {
                 if (endpoint is not RouteEndpoint routeEndpoint)
                     continue;
-
+ 
                 // Skip controller / Razor Pages action endpoints
                 if (routeEndpoint.Metadata.GetMetadata<ActionDescriptor>() is not null)
                     continue;
-
+ 
                 // Skip SignalR hub endpoints
                 if (routeEndpoint.Metadata.Any(m => m.GetType().Name is "HubMetadata" or "NegotiateMetadata"))
                     continue;
-
+ 
                 var httpMethodMeta = routeEndpoint.Metadata.GetMetadata<HttpMethodMetadata>();
                 if (httpMethodMeta is null || httpMethodMeta.HttpMethods.Count is 0)
                     continue;
-
+ 
                 var rawText = routeEndpoint.RoutePattern.RawText?.TrimStart('/') ?? string.Empty;
                 // Strip route constraints: {id:int} → {id}
                 var cleanText = Regex.Replace(rawText, @"\{(\w+):[^}]+\}", "{$1}");
                 var pattern = "/" + cleanText;
-
+ 
                 if (IsPathExcluded(pattern))
                     continue;
-
+ 
                 // Group by first tag, or derive from route prefix
                 var tagsMetadata = routeEndpoint.Metadata.GetMetadata<ITagsMetadata>();
                 var groupName = tagsMetadata?.Tags?.FirstOrDefault() ?? GetMinimalApiGroupFromPath(pattern);
-
+ 
                 // Summary / description
                 var summaryAttr = routeEndpoint.Metadata.GetMetadata<EndpointSummaryAttribute>();
                 var description = summaryAttr?.Summary ?? routeEndpoint.DisplayName ?? pattern;
-
+ 
                 // Authorization
                 var allowAnon = routeEndpoint.Metadata.GetMetadata<IAllowAnonymous>() is not null;
                 var authorizeData = routeEndpoint.Metadata.GetMetadata<IAuthorizeData>();
@@ -170,18 +170,18 @@ public class EndpointScanner(KayaApiExplorerOptions options) : IEndpointScanner
                     .Select(r => r.Trim())
                     .Where(r => !string.IsNullOrEmpty(r))
                     .ToList() ?? [];
-
+ 
                 // Obsolete
                 var obsolete = routeEndpoint.Metadata.GetMetadata<ObsoleteAttribute>();
-
+ 
                 // Endpoint name (set via .WithName(...))
                 var nameMetadata = routeEndpoint.Metadata.GetMetadata<EndpointNameMetadata>();
                 var endpointName = nameMetadata?.EndpointName ?? pattern;
-
+ 
                 var parameters = BuildMinimalApiParameters(routeEndpoint);
                 var requestBody = BuildMinimalApiRequestBody(routeEndpoint, description);
                 var producesResponses = BuildMinimalApiProducesResponses(routeEndpoint);
-
+ 
                 foreach (var httpMethod in httpMethodMeta.HttpMethods)
                 {
                     var apiEndpoint = new ApiEndpoint
@@ -198,7 +198,7 @@ public class EndpointScanner(KayaApiExplorerOptions options) : IEndpointScanner
                         IsObsolete = obsolete is not null,
                         ObsoleteMessage = obsolete?.Message
                     };
-
+ 
                     if (!groups.TryGetValue(groupName, out var list))
                     {
                         list = [];
@@ -208,7 +208,7 @@ public class EndpointScanner(KayaApiExplorerOptions options) : IEndpointScanner
                 }
             }
         }
-
+ 
         return groups.Select(g => new ApiController
         {
             Name = g.Key,
@@ -216,7 +216,7 @@ public class EndpointScanner(KayaApiExplorerOptions options) : IEndpointScanner
             Endpoints = g.Value
         }).ToList();
     }
-
+ 
     private static string GetMinimalApiGroupFromPath(string path)
     {
         var segments = path.TrimStart('/').Split('/');
@@ -224,27 +224,28 @@ public class EndpointScanner(KayaApiExplorerOptions options) : IEndpointScanner
         if (first is null) return "MinimalApi";
         return char.ToUpper(first[0]) + first[1..].ToLower();
     }
-
+ 
     private static ApiRequestBody? BuildMinimalApiRequestBody(RouteEndpoint endpoint, string endpointDescription)
-    {        var acceptsMeta = endpoint.Metadata.GetMetadata<IAcceptsMetadata>();
+    {
+        var acceptsMeta = endpoint.Metadata.GetMetadata<IAcceptsMetadata>();
         if (acceptsMeta?.RequestType is null) return null;
-
+ 
         var bodyType = acceptsMeta.RequestType;
         // Unwrap nullable wrapper if present (e.g. CreateTodoRequest? → CreateTodoRequest)
         var underlyingType = Nullable.GetUnderlyingType(bodyType) ?? bodyType;
-
+ 
         var typeName = ReflectionHelper.GetFriendlyTypeName(underlyingType);
         var schemas = new Dictionary<string, ApiSchema>();
         var processedTypes = new HashSet<Type>();
         var example = ReflectionHelper.GenerateExampleJson(underlyingType, schemas, processedTypes);
-
+ 
         // Use .WithDescription() metadata if set, otherwise derive from the endpoint summary or type name
         var descAttr = endpoint.Metadata.GetMetadata<EndpointDescriptionAttribute>();
         var bodyDescription = descAttr?.Description
             ?? (!string.IsNullOrWhiteSpace(endpointDescription) ? endpointDescription : $"Request body of type {typeName}");
-
+ 
         var schemaType = UnwrapCollectionType(underlyingType);
-
+ 
         return new ApiRequestBody
         {
             Type = typeName,
@@ -253,20 +254,20 @@ public class EndpointScanner(KayaApiExplorerOptions options) : IEndpointScanner
             Schema = ReflectionHelper.GenerateSchemaForType(schemaType)
         };
     }
-
+ 
     private static List<ApiProducesResponse> BuildMinimalApiProducesResponses(RouteEndpoint endpoint)
     {
         var metadataList = endpoint.Metadata.GetOrderedMetadata<IProducesResponseTypeMetadata>();
         if (metadataList.Count is 0)
             return [];
-
+ 
         var result = new List<ApiProducesResponse>();
         foreach (var meta in metadataList.OrderBy(m => m.StatusCode))
         {
             var type = meta.Type;
             var hasBody = type is not null && type != typeof(void);
             var typeName = hasBody ? ReflectionHelper.GetFriendlyTypeName(type!) : string.Empty;
-
+ 
             string example = string.Empty;
             ApiSchema? schema = null;
             if (hasBody)
@@ -276,7 +277,7 @@ public class EndpointScanner(KayaApiExplorerOptions options) : IEndpointScanner
                 example = ReflectionHelper.GenerateExampleJson(type!, schemas, processedTypes);
                 schema = ReflectionHelper.GenerateSchemaForType(UnwrapCollectionType(type!));
             }
-
+ 
             result.Add(new ApiProducesResponse
             {
                 StatusCode = meta.StatusCode,
@@ -286,21 +287,21 @@ public class EndpointScanner(KayaApiExplorerOptions options) : IEndpointScanner
                 Schema = schema
             });
         }
-
+ 
         return result;
     }
-
+ 
     private static List<ApiParameter> BuildMinimalApiParameters(RouteEndpoint endpoint)
     {
         var routeParamNames = endpoint.RoutePattern.Parameters
             .Select(p => p.Name)
             .ToHashSet(StringComparer.OrdinalIgnoreCase);
-
+ 
         var bodyType = endpoint.Metadata.GetMetadata<IAcceptsMetadata>()?.RequestType;
         var bodyUnderlying = bodyType is not null ? (Nullable.GetUnderlyingType(bodyType) ?? bodyType) : null;
-
+ 
         var parameters = new List<ApiParameter>();
-
+ 
         // Route parameters
         foreach (var routeParam in endpoint.RoutePattern.Parameters)
         {
@@ -312,28 +313,28 @@ public class EndpointScanner(KayaApiExplorerOptions options) : IEndpointScanner
                 Required = !routeParam.IsOptional
             });
         }
-
+ 
         // Query parameters — discovered via IParameterBindingMetadata (ASP.NET Core 8+)
         var bindingMetadata = endpoint.Metadata.GetOrderedMetadata<IParameterBindingMetadata>();
         foreach (var meta in bindingMetadata)
         {
             // Skip route parameters (already added above)
             if (routeParamNames.Contains(meta.Name)) continue;
-
+ 
             var paramType = meta.ParameterInfo?.ParameterType;
             if (paramType is null) continue;
-
+ 
             var underlyingType = Nullable.GetUnderlyingType(paramType) ?? paramType;
-
+ 
             // Skip the body type (handled separately as RequestBody)
             if (bodyUnderlying is not null && (underlyingType == bodyUnderlying || paramType == bodyType)) continue;
-
+ 
             // Skip ASP.NET Core / BCL injected types (HttpContext, CancellationToken, etc.)
             if (IsFrameworkType(underlyingType)) continue;
-
+ 
             // Complex types that are not the body type are DI services — skip them
             if (ReflectionHelper.IsComplexType(underlyingType)) continue;
-
+ 
             parameters.Add(new ApiParameter
             {
                 Name = meta.Name,
@@ -342,10 +343,10 @@ public class EndpointScanner(KayaApiExplorerOptions options) : IEndpointScanner
                 Required = !meta.IsOptional
             });
         }
-
+ 
         return parameters;
     }
-
+ 
     private static bool IsFrameworkType(Type type)
     {
         var fullName = type.FullName ?? string.Empty;
@@ -354,7 +355,7 @@ public class EndpointScanner(KayaApiExplorerOptions options) : IEndpointScanner
             || fullName.StartsWith("System.IO.Stream")
             || fullName.StartsWith("System.IO.Pipelines");
     }
-
+ 
     private static string ResolveRouteParamType(RoutePatternParameterPart param)
     {
         var policies = param.ParameterPolicies.Select(p => p.Content).ToList();
@@ -364,23 +365,23 @@ public class EndpointScanner(KayaApiExplorerOptions options) : IEndpointScanner
         if (policies.Any(p => p is "decimal" or "double" or "float")) return "decimal";
         return "string";
     }
-
+ 
     private static List<ApiEndpoint> ScanController(Type controllerType)
     {
         var endpoints = new List<ApiEndpoint>();
         var controllerName = controllerType.Name.Replace("Controller", "");
         var routeAttribute = controllerType.GetCustomAttribute<RouteAttribute>();
         var controllerRoute = routeAttribute?.Template ?? "api/[controller]";
-        
+ 
         controllerRoute = controllerRoute.Replace("[controller]", controllerName);
-
+ 
         var methods = controllerType.GetMethods(BindingFlags.Public | BindingFlags.Instance)
             .Where(m => m.IsPublic && !m.IsSpecialName && m.DeclaringType == controllerType);
-
+ 
         foreach (var method in methods)
         {
             var httpAttributes = GetHttpMethodAttributes(method);
-            
+ 
             foreach (var httpAttr in httpAttributes)
             {
                 foreach (var httpMethod in httpAttr.HttpMethods)
@@ -389,10 +390,10 @@ public class EndpointScanner(KayaApiExplorerOptions options) : IEndpointScanner
                     var fullPath = ReflectionHelper.CombineRoutes(controllerRoute, methodRoute);
                     // Strip route constraints: {id:Guid} → {id}, {id:int?} → {id}
                     fullPath = Regex.Replace(fullPath, @"\{(\*{0,2}\w+):[^}]+\}", "{$1}");
-                    
+ 
                     var (requiresAuth, roles) = AttributeHelper.GetAuthorizationInfo(method, controllerType);
                     var (isObsolete, obsoleteMessage) = AttributeHelper.GetObsoleteInfo(method);
-                    
+ 
                     var endpoint = new ApiEndpoint
                     {
                         Path = fullPath,
@@ -408,20 +409,20 @@ public class EndpointScanner(KayaApiExplorerOptions options) : IEndpointScanner
                         IsObsolete = isObsolete,
                         ObsoleteMessage = obsoleteMessage
                     };
-
+ 
                     endpoints.Add(endpoint);
                 }
             }
         }
-
+ 
         return endpoints;
     }
-
+ 
     private static string GetControllerDescription(string controllerName)
     {
         return $"{controllerName.Replace("Controller", "")} management";
     }
-
+ 
     private static string GetControllerDescription(Type controllerType)
     {
         var xmlSummary = XmlDocumentationHelper.GetTypeSummary(controllerType);
@@ -429,47 +430,51 @@ public class EndpointScanner(KayaApiExplorerOptions options) : IEndpointScanner
         {
             return xmlSummary;
         }
-
+ 
         var controllerName = controllerType.Name;
         return controllerName switch
         {
             "UsersController" => "Manage user accounts and profiles",
-            "ProductsController" => "Product catalog management", 
+            "ProductsController" => "Product catalog management",
             "OrdersController" => "Order processing and management",
             _ => $"{controllerName.Replace("Controller", "")} management"
         };
     }
-
+ 
     private static ApiRequestBody? GetMethodRequestBody(MethodInfo method)
     {
         var bodyParam = method.GetParameters()
-            .FirstOrDefault(p => {
+            .FirstOrDefault(p =>
+            {
                 if (IsFileParameter(p.ParameterType)) return false;
-                
+                // A complex type carrying an IFormFile is bound from multipart/form-data, not a JSON
+                // body — it is surfaced as a Form parameter instead, so skip it here.
+                if (TypeContainsFormFile(p.ParameterType)) return false;
+ 
                 return p.GetCustomAttribute<FromBodyAttribute>() is not null ||
-                       (!p.ParameterType.IsPrimitive && 
-                        p.ParameterType != typeof(string) && 
-                        p.ParameterType != typeof(DateTime) && 
+                       (!p.ParameterType.IsPrimitive &&
+                        p.ParameterType != typeof(string) &&
+                        p.ParameterType != typeof(DateTime) &&
                         p.ParameterType != typeof(Guid) &&
                         p.GetCustomAttribute<FromQueryAttribute>() is null &&
                         p.GetCustomAttribute<FromRouteAttribute>() is null &&
                         p.GetCustomAttribute<FromHeaderAttribute>() is null &&
                         p.GetCustomAttribute<FromFormAttribute>() is null);
             });
-
+ 
         if (bodyParam is null) return null;
-
+ 
         var typeName = ReflectionHelper.GetFriendlyTypeName(bodyParam.ParameterType);
         var schemas = new Dictionary<string, ApiSchema>();
         var processedTypes = new HashSet<Type>();
         var example = ReflectionHelper.GenerateExampleJson(bodyParam.ParameterType, schemas, processedTypes);
-
+ 
         // Unwrap collection to element type for schema, so List<User> gives us the User schema
         var schemaType = UnwrapCollectionType(bodyParam.ParameterType);
-
+ 
         var bodyDescription = XmlDocumentationHelper.GetParameterDescription(method, bodyParam.Name ?? string.Empty)
             ?? $"Request body containing {bodyParam.Name} data";
-
+ 
         return new ApiRequestBody
         {
             Type = typeName,
@@ -478,15 +483,15 @@ public class EndpointScanner(KayaApiExplorerOptions options) : IEndpointScanner
             Schema = ReflectionHelper.GenerateSchemaForType(schemaType)
         };
     }
-
+ 
     private static ApiResponse? GetMethodResponse(MethodInfo method)
     {
         var returnType = method.ReturnType;
-        
+ 
         if (returnType.IsGenericType)
         {
             var genericTypeDefinition = returnType.GetGenericTypeDefinition();
-            if (genericTypeDefinition == typeof(Task<>) || 
+            if (genericTypeDefinition == typeof(Task<>) ||
                 genericTypeDefinition == typeof(ValueTask<>))
             {
                 returnType = returnType.GetGenericArguments().FirstOrDefault() ?? typeof(void);
@@ -496,12 +501,12 @@ public class EndpointScanner(KayaApiExplorerOptions options) : IEndpointScanner
                 returnType = typeof(void);
             }
         }
-
+ 
         if (returnType == typeof(void))
         {
             return null;
         }
-
+ 
         var actualReturnType = returnType;
         if (returnType.Name.Contains("ActionResult") || returnType.Name.Contains("IActionResult"))
         {
@@ -522,15 +527,15 @@ public class EndpointScanner(KayaApiExplorerOptions options) : IEndpointScanner
                 return null;
             }
         }
-
+ 
         var typeName = ReflectionHelper.GetFriendlyTypeName(actualReturnType);
         var schemas = new Dictionary<string, ApiSchema>();
         var processedTypes = new HashSet<Type>();
         var example = ReflectionHelper.GenerateExampleJson(actualReturnType, schemas, processedTypes);
-
+ 
         // Unwrap collection to element type for schema, so List<User> gives us the User schema
         var schemaType = UnwrapCollectionType(actualReturnType);
-
+ 
         return new ApiResponse
         {
             Type = typeName,
@@ -539,7 +544,7 @@ public class EndpointScanner(KayaApiExplorerOptions options) : IEndpointScanner
             Schema = ReflectionHelper.GenerateSchemaForType(schemaType)
         };
     }
-
+ 
     private static Type UnwrapCollectionType(Type type)
     {
         if (type.IsArray)
@@ -552,16 +557,16 @@ public class EndpointScanner(KayaApiExplorerOptions options) : IEndpointScanner
         }
         return type;
     }
-
+ 
     private static List<ApiProducesResponse> GetProducesResponses(MethodInfo method)
     {
         var attributes = method.GetCustomAttributes<ProducesResponseTypeAttribute>()
             .OrderBy(a => a.StatusCode)
             .ToList();
-
+ 
         if (attributes.Count is 0)
             return [];
-
+ 
         var result = new List<ApiProducesResponse>();
         foreach (var attr in attributes)
         {
@@ -569,7 +574,7 @@ public class EndpointScanner(KayaApiExplorerOptions options) : IEndpointScanner
             // typeof(void) means no response body
             var hasBody = type is not null && type != typeof(void);
             var typeName = hasBody ? ReflectionHelper.GetFriendlyTypeName(type!) : string.Empty;
-
+ 
             string example = string.Empty;
             ApiSchema? schema = null;
             if (hasBody)
@@ -579,10 +584,10 @@ public class EndpointScanner(KayaApiExplorerOptions options) : IEndpointScanner
                 example = ReflectionHelper.GenerateExampleJson(type!, schemas, processedTypes);
                 schema = ReflectionHelper.GenerateSchemaForType(UnwrapCollectionType(type!));
             }
-
+ 
             var description = XmlDocumentationHelper.GetResponseDescription(method, attr.StatusCode)
                 ?? GetDefaultStatusDescription(attr.StatusCode);
-
+ 
             result.Add(new ApiProducesResponse
             {
                 StatusCode = attr.StatusCode,
@@ -592,10 +597,10 @@ public class EndpointScanner(KayaApiExplorerOptions options) : IEndpointScanner
                 Schema = schema
             });
         }
-
+ 
         return result;
     }
-
+ 
     private static string GetDefaultStatusDescription(int statusCode) => statusCode switch
     {
         200 => "OK",
@@ -611,17 +616,17 @@ public class EndpointScanner(KayaApiExplorerOptions options) : IEndpointScanner
         500 => "Internal Server Error",
         _ => "Response"
     };
-    
+ 
     private static List<HttpMethodAttribute> GetHttpMethodAttributes(MethodInfo method)
     {
         var httpAttributes = new List<HttpMethodAttribute>();
-        
+ 
         var allHttpAttrs = method.GetCustomAttributes()
             .Where(attr => typeof(HttpMethodAttribute).IsAssignableFrom(attr.GetType()))
             .Cast<HttpMethodAttribute>();
-            
+ 
         httpAttributes.AddRange(allHttpAttrs);
-        
+ 
         if (httpAttributes.Count is 0)
         {
             var routeAttr = method.GetCustomAttribute<RouteAttribute>();
@@ -634,32 +639,32 @@ public class EndpointScanner(KayaApiExplorerOptions options) : IEndpointScanner
                 httpAttributes.Add(new HttpGetAttribute(method.Name.ToLower()));
             }
         }
-        
+ 
         return httpAttributes;
     }
-    
+ 
     private static string GetMethodDescription(MethodInfo method)
     {
         var xmlSummary = XmlDocumentationHelper.GetMethodSummary(method);
         return !string.IsNullOrWhiteSpace(xmlSummary) ? xmlSummary : $"{method.Name} action in {method.DeclaringType?.Name}";
     }
-
+ 
     private static bool IsFileParameter(Type parameterType)
     {
         // Check for IFormFile by fully qualified name to avoid dependency
         if (parameterType.FullName is "Microsoft.AspNetCore.Http.IFormFile")
             return true;
-
+ 
         // Check for IFormFileCollection
         if (parameterType.FullName is "Microsoft.AspNetCore.Http.IFormFileCollection")
             return true;
-
+ 
         // Check if type implements IFormFile interface
         var iFormFileType = parameterType.GetInterfaces()
             .FirstOrDefault(i => i.FullName is "Microsoft.AspNetCore.Http.IFormFile");
         if (iFormFileType is not null)
             return true;
-
+ 
         // Check for collections/arrays of IFormFile (List<IFormFile>, IEnumerable<IFormFile>, etc.)
         if (parameterType.IsGenericType)
         {
@@ -667,7 +672,7 @@ public class EndpointScanner(KayaApiExplorerOptions options) : IEndpointScanner
             if (genericArgs.Any(t => IsFileParameter(t)))
                 return true;
         }
-
+ 
         // Check for array of IFormFile
         if (parameterType.IsArray)
         {
@@ -675,20 +680,37 @@ public class EndpointScanner(KayaApiExplorerOptions options) : IEndpointScanner
             if (elementType is not null && IsFileParameter(elementType))
                 return true;
         }
-
+ 
         return false;
     }
-
+ 
+    // True when the type either is a file (IFormFile / collection of) or is a complex type with at
+    // least one IFormFile property — both cases require the request to be sent as multipart/form-data.
+    private static bool TypeContainsFormFile(Type type)
+    {
+        if (IsFileParameter(type)) return true;
+        if (!ReflectionHelper.IsComplexType(type)) return false;
+ 
+        return type.GetProperties(BindingFlags.Public | BindingFlags.Instance)
+            .Any(p => IsFileParameter(p.PropertyType));
+    }
+ 
     private static List<ApiParameter> GetMethodParameters(MethodInfo method, string routePath)
     {
         var parameters = new List<ApiParameter>();
-
+ 
         foreach (var param in method.GetParameters())
         {
             var isFileParameter = IsFileParameter(param.ParameterType);
             var parameterSource = isFileParameter ? "File" : DetermineParameterSource(param, routePath);
+            // A complex parameter that carries an IFormFile property is bound from multipart/form-data,
+            // not JSON — surface it as a Form parameter so the UI sends the whole request as form data.
+            if (parameterSource is "Body" && TypeContainsFormFile(param.ParameterType))
+            {
+                parameterSource = "Form";
+            }
             var typeName = ReflectionHelper.GetFriendlyTypeName(param.ParameterType);
-            
+ 
             // Get the actual header name if specified in FromHeader attribute
             string? headerName = null;
             if (parameterSource is "Header")
@@ -696,7 +718,7 @@ public class EndpointScanner(KayaApiExplorerOptions options) : IEndpointScanner
                 var fromHeaderAttr = param.GetCustomAttribute<FromHeaderAttribute>();
                 headerName = fromHeaderAttr?.Name;
             }
-            
+ 
             var underlyingParamType = Nullable.GetUnderlyingType(param.ParameterType) ?? param.ParameterType;
             var apiParam = new ApiParameter
             {
@@ -712,47 +734,47 @@ public class EndpointScanner(KayaApiExplorerOptions options) : IEndpointScanner
                 Description = XmlDocumentationHelper.GetParameterDescription(method, param.Name ?? "unknown") ?? string.Empty,
                 Constraints = ReflectionHelper.GetParameterConstraints(param)
             };
-
+ 
             if (!isFileParameter && ReflectionHelper.IsComplexType(param.ParameterType))
             {
                 apiParam.Schema = ReflectionHelper.GenerateSchemaForType(param.ParameterType);
             }
-
+ 
             parameters.Add(apiParam);
         }
-
+ 
         return parameters;
     }
-
+ 
     private static string DetermineParameterSource(ParameterInfo param, string routePath)
     {
         var fromBodyAttr = param.GetCustomAttribute<FromBodyAttribute>();
         if (fromBodyAttr is not null) return "Body";
-
+ 
         var fromQueryAttr = param.GetCustomAttribute<FromQueryAttribute>();
         if (fromQueryAttr is not null) return "Query";
-
+ 
         var fromRouteAttr = param.GetCustomAttribute<FromRouteAttribute>();
         if (fromRouteAttr is not null) return "Route";
-
+ 
         var fromHeaderAttr = param.GetCustomAttribute<FromHeaderAttribute>();
         if (fromHeaderAttr is not null) return "Header";
-
+ 
         var fromFormAttr = param.GetCustomAttribute<FromFormAttribute>();
         if (fromFormAttr is not null) return "Form";
-
+ 
         if (!string.IsNullOrEmpty(param.Name) && routePath.Contains($"{{{param.Name}}}"))
         {
             return "Route";
         }
-
+ 
         // Default logic based on type
-        if (param.ParameterType.IsPrimitive || param.ParameterType == typeof(string) || 
+        if (param.ParameterType.IsPrimitive || param.ParameterType == typeof(string) ||
             param.ParameterType == typeof(DateTime) || param.ParameterType == typeof(Guid))
         {
             return "Query";
         }
-
+ 
         return "Body";
     }
 }
