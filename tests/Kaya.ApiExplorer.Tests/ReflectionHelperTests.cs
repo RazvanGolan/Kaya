@@ -535,4 +535,97 @@ public class ReflectionHelperTests
         var result = ReflectionHelper.CombineRoutes("/api/users", "/absolute");
         Assert.Equal("/absolute", result);
     }
+
+    // -------------------------------------------------------------------------
+    // Circular reference handling
+    // -------------------------------------------------------------------------
+
+    private class SelfReferencingNode
+    {
+        public string? Name { get; set; }
+        public SelfReferencingNode? Next { get; set; }
+    }
+
+    private class CircularParent
+    {
+        public string? Name { get; set; }
+        public CircularChild? Child { get; set; }
+    }
+
+    private class CircularChild
+    {
+        public string? Name { get; set; }
+        public CircularParent? Parent { get; set; }
+    }
+
+    private class CircularThroughList
+    {
+        public string? Name { get; set; }
+        public List<CircularListItem>? Items { get; set; }
+    }
+
+    private class CircularListItem
+    {
+        public CircularThroughList? Owner { get; set; }
+    }
+
+    private class CircularGenericWrapper
+    {
+        public string? Name { get; set; }
+        public GenericHolder<CircularGenericWrapper>? Holder { get; set; }
+    }
+
+    private class GenericHolder<T>
+    {
+        public T? Value { get; set; }
+    }
+
+    [Fact]
+    public void GenerateSchemaForType_ShouldTerminate_OnSelfReferencingType()
+    {
+        var schema = ReflectionHelper.GenerateSchemaForType(typeof(SelfReferencingNode));
+
+        Assert.NotNull(schema);
+        Assert.True(schema.Properties.ContainsKey(nameof(SelfReferencingNode.Next)));
+        Assert.NotNull(schema.Example);
+    }
+
+    [Fact]
+    public void GenerateSchemaForType_ShouldTerminate_OnMutuallyCircularTypes()
+    {
+        var schema = ReflectionHelper.GenerateSchemaForType(typeof(CircularParent));
+
+        Assert.NotNull(schema);
+        Assert.True(schema.Properties.ContainsKey(nameof(CircularParent.Child)));
+        Assert.NotNull(schema.Example);
+    }
+
+    [Fact]
+    public void GenerateSchemaForType_ShouldTerminate_OnCycleThroughCollection()
+    {
+        var schema = ReflectionHelper.GenerateSchemaForType(typeof(CircularThroughList));
+
+        Assert.NotNull(schema);
+        Assert.NotNull(schema.Example);
+    }
+
+    [Fact]
+    public void GenerateSchemaForType_ShouldTerminate_OnCycleThroughGenericWrapper()
+    {
+        var schema = ReflectionHelper.GenerateSchemaForType(typeof(CircularGenericWrapper));
+
+        Assert.NotNull(schema);
+        Assert.NotNull(schema.Example);
+    }
+
+    [Fact]
+    public void GenerateExampleJson_ShouldTerminate_OnMutuallyCircularTypes()
+    {
+        var schemas = new Dictionary<string, Kaya.ApiExplorer.Models.ApiSchema>();
+        var processedTypes = new HashSet<Type>();
+
+        var example = ReflectionHelper.GenerateExampleJson(typeof(CircularParent), schemas, processedTypes);
+
+        Assert.False(string.IsNullOrWhiteSpace(example));
+    }
 }

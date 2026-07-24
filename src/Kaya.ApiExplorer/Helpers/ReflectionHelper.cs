@@ -335,7 +335,9 @@ public static class ReflectionHelper
                     {
                         try
                         {
-                            var nestedExample = GenerateExampleFromSchema(underlyingType, schemas, processedTypes);
+                            // Track the visited path so circular type references terminate instead of overflowing the stack
+                            var nestedProcessedTypes = new HashSet<Type>(processedTypes) { type, underlyingType };
+                            var nestedExample = GenerateExampleFromSchema(underlyingType, schemas, nestedProcessedTypes);
                             var parsedExample = JsonSerializer.Deserialize<object>(nestedExample);
                             example[property.Name] = parsedExample ?? new { };
                         }
@@ -354,8 +356,10 @@ public static class ReflectionHelper
                 }
                 else
                 {
-                    // For complex nested objects, generate a nested example
-                    var nestedExample = GenerateExampleFromSchema(underlyingType, schemas, processedTypes);
+                    // For complex nested objects, generate a nested example.
+                    // Track the visited path so circular type references terminate instead of overflowing the stack
+                    var nestedProcessedTypes = new HashSet<Type>(processedTypes) { type, underlyingType };
+                    var nestedExample = GenerateExampleFromSchema(underlyingType, schemas, nestedProcessedTypes);
                     try
                     {
                         var parsedExample = JsonSerializer.Deserialize<object>(nestedExample);

@@ -6,7 +6,7 @@
     <Nullable>enable</Nullable>
     <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
     <PackageId>Kaya.ApiExplorer</PackageId>
-    <PackageVersion>2.4.1</PackageVersion>
+    <PackageVersion>2.4.2</PackageVersion>
     <Authors>RazvanGolan</Authors>
     <Company>RazvanGolan</Company>
     <Product>Kaya API Explorer</Product>
@@ -17,7 +17,7 @@
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
     <PackageReadmeFile>README.md</PackageReadmeFile>
     <PackageIcon>icon.png</PackageIcon>
-    <PackageReleaseNotes>Version 2.4.1: Added option to load exported cURL in request builder and edit it. Added option to choose request content type (JSON, Form Data, URL Encoded). Fixed request payload type to correctly use Form Data when an IFormFile is present. Fixed UI input display issues for complex query parameters.</PackageReleaseNotes>
+    <PackageReleaseNotes>Version 2.4.2: Fixed a StackOverflowException that crashed the host application during endpoint scanning when a request/response type contained a circular reference through directly nested properties (e.g. JsonObject/JsonNode or self-referencing DTOs). Example generation now tracks visited types and renders circular references as empty objects.</PackageReleaseNotes>
   </PropertyGroup>
   <ItemGroup>
     <FrameworkReference Include="Microsoft.AspNetCore.App" />
